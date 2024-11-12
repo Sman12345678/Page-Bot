@@ -43,12 +43,15 @@ def webhook():
                     sender_id = event["sender"]["id"]
                     message_text = event["message"].get("text")
                     message_attachments = event["message"].get("attachments")
+                    message_command = event["message"].get("text")
 
                     # Check if message has text with a command prefix
-                    if message_text and message_text.startswith(PREFIX):
-                        response = messageHandler.handle_text_message(message_text[len(PREFIX):])
+                    if message_command and message_command.startswith(PREFIX):
+                        response = messageHandler.handle_text_command(message_command[len(PREFIX):])
                     elif message_attachments:
                         response = messageHandler.handle_attachment(message_attachments)
+elif message_text:
+    response = messageHandler.handle_text_message(message_text)
                     else:
                         response = "Sorry, I didn't understand that message."
 
