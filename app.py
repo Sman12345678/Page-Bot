@@ -50,8 +50,8 @@ def webhook():
                         response = messageHandler.handle_text_command(message_command[len(PREFIX):])
                     elif message_attachments:
                         response = messageHandler.handle_attachment(message_attachments)
-elif message_text:
-    response = messageHandler.handle_text_message(message_text)
+                    elif message_text:
+                        response = messageHandler.handle_text_message(message_text)
                     else:
                         response = "Sorry, I didn't understand that message."
 
