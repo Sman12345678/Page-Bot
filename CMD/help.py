@@ -21,5 +21,6 @@ def execute():
     response = "📜 **Available Commands** 📜\n\n"
     response += "\n".join([f"🔹 **/{cmd}** - Use this command to check{cmd.replace('_', ' ')}" for cmd in cmds])
     response += "\n\n🤖 _Type a command with the prefix to use it!_ 🤖, Example /quote"
+    response += "\n\n THANKS FOR USING 😁"
 
     return response
