@@ -19,7 +19,7 @@ def execute():
 
     # Format the response with emojis and structure
     response = "📜 **Available Commands** 📜\n\n"
-    response += "\n".join([f"🔹 **/{cmd}** - Use this command to {cmd.replace('_', ' ')}" for cmd in cmds])
-    response += "\n\n🤖 _Type a command with the prefix to use it!_ 🤖"
+    response += "\n".join([f"🔹 **/{cmd}** - Use this command to check{cmd.replace('_', ' ')}" for cmd in cmds])
+    response += "\n\n🤖 _Type a command with the prefix to use it!_ 🤖, Example /quote"
 
     return response
