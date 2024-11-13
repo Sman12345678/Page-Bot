@@ -4,5 +4,5 @@ python-dotenv
 flask-cors
 google-generativeai
 beautifulsoup4
-sqlite3
+sqlite3==3.34.1
 
