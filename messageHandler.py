@@ -74,7 +74,7 @@ def handle_attachment(attachment_data, attachment_type="image"):
         try:
             # Send image data for processing (if supported by model)
             chat = genai.GenerativeModel(
-                model_name="gemini-1.5",
+                model_name="gemini-1.5-flash",
                 generation_config={
                     "temperature": 0.3,
                     "top_p": 0.95,
@@ -84,7 +84,7 @@ def handle_attachment(attachment_data, attachment_type="image"):
             ).start_chat(history=[])
 
             # Generate response for the image (modify if direct image processing is supported)
-            response = chat.send_message(f"{system_instruction}\n\nAnalyze this:{attachment_data}")
+            response = chat.send_message(f"{system_instruction}\n\nAnalyze this image")
             logger.info("Image processed successfully.")
             return response.text
 
