@@ -59,7 +59,7 @@ def handle_text_command(command_name):
         return cmd_module.execute()
     except ImportError:
         logger.warning("Command %s not found.", command_name)
-        return "Command %s does not exist."
+        return "Command  does not exist."
 
 # Handle attachments (e.g., direct images)
 def handle_attachment(attachment_data, attachment_type="image"):
