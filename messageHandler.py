@@ -16,7 +16,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 system_instruction = """
-*System Name:*Your Name is KORA AI Assistance created by Kolawole Suleiman. you are running on Sman V1.0
+*System Name:*Your Name is KORA AI an AI Assistance created by Kolawole Suleiman. you are running on Sman V1.0 which is latest version build with high programming technique. you should assist to all topics
 """
 
 # Handle general text messages
@@ -84,7 +84,7 @@ def handle_attachment(attachment_data, attachment_type="image"):
             ).start_chat(history=[])
 
             # Generate response for the image (modify if direct image processing is supported)
-            response = chat.send_message(f"{system_instruction}\n\nAnalyze this image:{attachment_data}")
+            response = chat.send_message(f"{system_instruction}\n\nAnalyze this:{attachment_data}")
             logger.info("Image processed successfully.")
             return response.text
 
