@@ -74,7 +74,7 @@ def handle_attachment(attachment_data, attachment_type="image"):
         try:
             # Send image data for processing (if supported by model)
             chat = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",
+                model_name="gemini-1.5",
                 generation_config={
                     "temperature": 0.3,
                     "top_p": 0.95,
