@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 
 Info = {
-    "Description":"Get News If English Premier League"
+    "Description":"Get News About English Premier League"
 }
 def execute():
     # Define the URL to scrape for EPL news from Sky Sports
