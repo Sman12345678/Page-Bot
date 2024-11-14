@@ -3,7 +3,7 @@ import time
 
 # Description dictionary
 Info = {
-    "description": "KORA AI Bot Status",
+    "Description": "KORA AI Bot Status",
     "bot_name": "KORA",
     "owner": "Kolawole Suleiman",
     "version": "v1.0",
