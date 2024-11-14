@@ -1,5 +1,8 @@
 import time
 import calendar
+Info = {
+    "Description":"Time and Date. Depending on your time Zone"
+}
 
 def execute():
     # Get the current time and date information
