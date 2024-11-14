@@ -1,6 +1,16 @@
 import app  # Import the main app to access `get_bot_uptime`
 import time
 
+# Description dictionary
+Info = {
+    "description": "KORA AI Bot Status",
+    "bot_name": "KORA",
+    "owner": "Kolawole Suleiman",
+    "version": "v1.0",
+    "purpose": "Provides assistance, information, and companionship.",
+    "last_update": "September 14, 2024"
+}
+
 def format_duration(seconds):
     # Helper function to format time into days, hours, minutes, seconds
     days, seconds = divmod(seconds, 86400)
@@ -15,17 +25,32 @@ def execute():
     # Format uptime for better readability
     uptime_str = format_duration(uptime_seconds)
 
-    # Return the uptime information with emojis
-    return (
-        "🤖 **KORA Bot Uptime**\n\n"
-        f"**Bot Name:** KORA\n"
-        f"**Owner:** Kolawole Suleiman\n"
-        f"**Version:** v1.0\n\n"
-        f"⏱️ **Uptime:** {uptime_str}\n\n"
-        "⚙️ **System Status:**\n"
-        f"  • **CPU Usage:** {get_cpu_usage()}%\n"
-        f"  • **Memory Usage:** {get_memory_usage()}%\n"
+    # Visual and structured response
+    response = (
+        "━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "🤖 **KORA AI - Status Report** 🤖\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"📝 **Bot Name:** {Info['bot_name']}\n"
+        f"👤 **Owner:** {Info['owner']}\n"
+        f"🔖 **Version:** {Info['version']}\n"
+        f"🎯 **Purpose:** {Info['purpose']}\n"
+        f"🗓️ **Last Update:** {Info['last_update']}\n\n"
+        "⏳ **Uptime:**\n"
+        f"   └─ {uptime_str}\n\n"
+        "📊 **System Overview:**\n"
+        f"   • **CPU Usage:** {get_cpu_usage()}%\n"
+        f"   • **Memory Usage:** {get_memory_usage()}%\n\n"
+        "📁 **Storage:**\n"
+        "   • Total: Placeholder GB\n"
+        "   • Used: Placeholder GB\n"
+        "   • Free: Placeholder GB\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━\n"
+        "💡 **Additional Information:**\n"
+        "   • This bot is designed to assist and engage in an interactive manner.\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━\n"
     )
+
+    return response
 
 def get_cpu_usage():
     # Placeholder: Add real CPU usage code if required
