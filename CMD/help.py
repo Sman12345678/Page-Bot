@@ -38,6 +38,6 @@ def execute():
 
     # Footer with some extra info or design
     response += "\n🛠️ **Tip**: Use `/command_name` to activate a command.\n"
-    response += "💡 **For Example**: Type `/ping` to check bot's status.\n"
+    response += "💡 **For Example**: Type `/up` to check bot's status.\n"
 
     return response
