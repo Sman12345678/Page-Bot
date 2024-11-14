@@ -63,18 +63,10 @@ def handle_text_command(command_name):
 
 # Handle attachments (e.g., direct images)
 def handle_attachment(attachment_data, attachment_type="image"):
-    """
-    Processes attachments sent by the user.
-    
-    :param attachment_data: Raw data of the attachment (e.g., image bytes).
-    :param attachment_type: Type of the attachment (default is 'image').
-    :return: AI-generated response or a message about the attachment.
-    """
     if attachment_type == "image":
         logger.info("Direct image received for processing.")
         
         try:
-            # Send image data for processing (if supported by model)
             chat = genai.GenerativeModel(
                 model_name="gemini-1.5-flash",
                 generation_config={
@@ -85,8 +77,8 @@ def handle_attachment(attachment_data, attachment_type="image"):
                 }
             ).start_chat(history=[])
 
-            # Generate response for the image (modify if direct image processing is supported)
-            response = chat.send_message(f"{system_instruction}\n\nAnalyze this image")
+            # Hypothetically send image data directly if supported
+            response = chat.send_image(image_data=attachment_data)
             logger.info("Image processed successfully.")
             return response.text
 
