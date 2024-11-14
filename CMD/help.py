@@ -1,26 +1,43 @@
 import os
+import importlib
+import logging
+
+# Configure logging
+logger = logging.getLogger()
 
 def execute():
-    cmd_folder = "CMD"
-    cmds = []
+    response = "📜 **KORA AI Command List** 📜\n\n"
+    response += "Here are the available commands:\n\n"
 
-    # Check each file in the CMD folder
-    for filename in os.listdir(cmd_folder):
-        if filename.endswith(".py") and filename != "help.py":  # Exclude help.py itself
-            cmd_name = filename[:-3]  # Remove the .py extension
-            cmds.append(cmd_name)
+    # Header for the command diagram
+    response += "╔════════════════════════════╗\n"
+    response += "║    📂 **Command Overview** 📂   ║\n"
+    response += "╚════════════════════════════╝\n\n"
 
-    # If no commands are found
-    if not cmds:
-        return "⚠️ No commands found in the CMD folder."
+    # Iterate over each file in the CMD folder
+    for filename in os.listdir("CMD"):
+        if filename.endswith(".py") and filename != "__init__.py":
+            command_name = filename[:-3]  # Remove .py extension
 
-    # Sort the commands alphabetically
-    cmds.sort()
+            # Dynamically load each command module
+            try:
+                cmd_module = importlib.import_module(f"CMD.{command_name}")
+                # Try to get the Info dictionary for each command
+                description = getattr(cmd_module, "Info", {}).get("Description", "No description available.")
+                
+                # Append each command in a structured format with emojis
+                response += f"📌 **/{command_name}**\n"
+                response += f"   📖 *Description*: {description}\n"
+                response += "   ─────────────────────────────\n"
 
-    # Format the response with emojis and structure
-    response = "📜 **Available Commands** 📜\n\n"
-    response += "\n".join([f"🔹 **/{cmd}** - Use this command to check{cmd.replace('_', ' ')}" for cmd in cmds])
-    response += "\n\n🤖 _Type a command with the prefix to use it!_ 🤖, Example /quote"
-    response += "\n\n THANKS FOR USING 😁"
+            except Exception as e:
+                logger.warning(f"Failed to load command {command_name}: {e}")
+                response += f"📌 **/{command_name}**\n"
+                response += f"   📖 *Description*: Unable to load description.\n"
+                response += "   ─────────────────────────────\n"
+
+    # Footer with some extra info or design
+    response += "\n🛠️ **Tip**: Use `/command_name` to activate a command.\n"
+    response += "💡 **For Example**: Type `/ping` to check bot's status.\n"
 
     return response
