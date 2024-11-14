@@ -1,6 +1,9 @@
 import requests
 from bs4 import BeautifulSoup
 import random
+Info = {
+    "Description":"Get Random quotes to Motivate you"
+}
 
 def execute():
     # Scrape quotes from the website
