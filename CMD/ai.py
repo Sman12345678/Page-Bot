@@ -1,7 +1,7 @@
 import requests
 import random
 Info = {
-    "Description":" Chat with Kora Ai External Api"
+    "Description": "Get Response From Kora AI External API"
 }
 
 # Endpoint for Kora AI
@@ -16,18 +16,7 @@ DEFAULT_RESPONSES = [
     "Hello, friend! 🙌 Got a question? Use `/ai (query)` to chat with Kora and get insights!"
 ]
 
-def get_query():
-    """
-    Function to simulate retrieving a query from the user.
-    Replace this with actual query-fetching logic in your bot framework.
-    """
-    # Replace this return value with actual user input retrieval if needed
-    return ""  # Empty string for no input scenario
-
-def execute():
-    # Retrieve the query from the user
-    query = get_query()
-    
+def execute(query=""):
     # If no query is provided, return a random friendly response
     if not query:
         return random.choice(DEFAULT_RESPONSES)
@@ -47,7 +36,7 @@ def execute():
             return format_ai_reply(ai_reply)
         else:
             # Return a message if there's an issue with the API
-            return "🚫 Sorry, I'm having trouble replying right now. Please try again later."
+            return "🚫 Sorry, I'm having trouble reaching Kora AI right now. Please try again later."
     
     except requests.RequestException as e:
         # Log and return an error message in case of a request failure
@@ -60,8 +49,6 @@ def format_ai_reply(ai_reply):
     """
     return (
         "🧠 **Kora AI Response** 🧠\n\n"
-        "________________________________"
         f"💬 **Response:**\n{ai_reply}\n\n"
-        "✨ **Need more help?** Just ask me again with `/ai (your query)`! �"
-        "_________________________________"
+        "✨ **Need more help?** Just ask me again with `/ai (your query)`! 😊"
     )
