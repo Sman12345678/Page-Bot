@@ -49,6 +49,9 @@ def webhook():
                     # Check if message has text with a command prefix
                     if message_command and message_command.startswith(PREFIX):
                         response = messageHandler.handle_text_command(message_command[len(PREFIX):])
+                        
+                    elif message_command and message_command.startswith("/ai"):
+                         return ai.execute()
                     elif message_attachments:
                         response = messageHandler.handle_attachment(message_attachments)
                     elif message_text:
