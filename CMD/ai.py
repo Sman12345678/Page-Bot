@@ -57,8 +57,8 @@ def format_ai_reply(ai_reply):
     """
     return (
         "🧠 **Kora AI Response** 🧠\n\n"
-        "_____________________________
+        "________________________________"
         f"💬 **Response:**\n{ai_reply}\n\n"
-        "✨ **Need more help?** Just ask me again with `/ai (your query)`! 😊"
-        "______________________________________"
+        "✨ **Need more help?** Just ask me again with `/ai (your query)`! �"
+        "_________________________________"
     )
