@@ -1,5 +1,8 @@
 import requests
 import random
+Info = {
+    "Description":" Chat with Kora Ai External Api"
+}
 
 # Endpoint for Kora AI
 KORA_AI_API_URL = "https://kora-ai.onrender.com/koraai?query={}"
