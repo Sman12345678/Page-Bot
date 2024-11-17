@@ -62,7 +62,7 @@ def handle_text_command(command_name):
         return "The Command you are using does not exist."
 
 # Handle attachments (e.g., direct images)
-def handle_attachement(arch_file)
+def handle_attachement(arch_file):
     try:
         # Upload to im.ge
         arch_api_key = os.getenv('ARCH_UPLOAD_API_KEY')
