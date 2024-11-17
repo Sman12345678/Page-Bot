@@ -92,7 +92,7 @@ def handle_attachment(attachment_data, attachment_type="image"):
 
         except Exception as e:
             logger.error("Failed to process image: %s", str(e))
-            return "Error processing the image."
+            return "🚫 Attachment processing not Available at the moment."
     
     logger.info("Unsupported attachment type: %s", attachment_type)
     return "Unsupported attachment type."
