@@ -62,37 +62,48 @@ def handle_text_command(command_name):
         return "The Command you are using does not exist."
 
 # Handle attachments (e.g., direct images)
-def handle_attachment(attachment_data, attachment_type="image"):
-    """
-    Processes attachments sent by the user.
-    
-    :param attachment_data: Raw data of the attachment (e.g., image bytes).
-    :param attachment_type: Type of the attachment (default is 'image').
-    :return: AI-generated response or a message about the attachment.
-    """
-    if attachment_type == "image":
-        logger.info("Direct image received for processing.")
-        
-        try:
-            # Initialize Gemini model with image processing capability
-            model = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",
-                generation_config={
-                    "temperature": 0.3,
-                    "top_p": 0.95,
-                    "top_k": 64,
-                    "max_output_tokens": 8192,
-                }
-            )
+def handle_attachement(arch_file)
+    try:
+        # Upload to im.ge
+        arch_api_key = os.getenv('ARCH_UPLOAD_API_KEY')
+        if not arch_api_key:
+            raise ValueError("ARCH_UPLOAD_API_KEY is not set in the environment.")
 
-            # Use generate_content to process the image
-            response = model.generate_content(input_data=attachment_data, input_type="image")
-            logger.info("Image processed successfully.")
-            return response.text
+        arch_upload_url = 'https://im.ge/api/1/upload'
+        arch_payload = {'source': (arch_file.filename, arch_file.read(), arch_file.content_type)}
+        arch_headers = {'X-API-Key': arch_api_key}
 
-        except Exception as e:
-            logger.error("Failed to process image: %s", str(e))
-            return "🚫 Attachment processing not Available at the moment."
-    
-    logger.info("Unsupported attachment type: %s", attachment_type)
-    return "Unsupported attachment type."
+        arch_response = requests.post(arch_upload_url, files=arch_payload, headers=arch_headers, verify=False)
+        arch_response.raise_for_status()  # Raise error if the request fails
+
+        arch_image_url = arch_response.json().get('image', {}).get('url')
+        if not arch_image_url:
+            raise ValueError("No image URL returned from im.ge API.")
+
+        logger.info(f"Image successfully uploaded: {arch_image_url}")
+
+        # Analyze with Gen AI
+        model = GenerativeModel("gemini-1.5-pro")
+        arch_image_data = requests.get(arch_image_url, verify=False).content
+
+        arch_analysis_request = model.generate_content([
+            "Analyze the image thoroughly. Suggest taking a better shot if details are unclear. "
+            "If it's a plant, provide its scientific answer with humor and professionalism. "
+            "Dismiss cartoon images humorously while emphasizing the importance of real images.",
+            {'mime_type': 'image/jpeg', 'data': arch_image_data}
+        ])
+
+        arch_analysis = arch_analysis_request.text
+
+        logger.info("Image analyzed successfully.")
+        return jsonify({'image_url': arch_image_url, 'analysis': arch_analysis})
+
+    except requests.RequestException as arch_error:
+        arch_message = f"Request failed: {str(arch_error)}"
+        logger.error(f"Request error: {arch_message}\n{traceback.format_exc()}")
+        return jsonify({'error': arch_message}), 500
+
+    except Exception as e:
+        arch_message = f"Unexpected error: {str(e)}"
+        logger.error(f"Unexpected error: {arch_message}\n{traceback.format_exc()}")
+        return jsonify({'error': arch_message}), 500
