@@ -4,6 +4,7 @@ import importlib
 from dotenv import load_dotenv
 import logging
 from io import BytesIO
+import requests
 
 # Load environment variables
 load_dotenv()
