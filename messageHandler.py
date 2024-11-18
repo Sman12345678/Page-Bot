@@ -65,9 +65,11 @@ def handle_text_command(command_name):
         return "🚫The Command you are using does not exist, Type /help to view Available Command"
 
 # Handle attachments (e.g., direct images)
+
+
 def handle_attachment(attachment_data, attachment_type="image"):
     """
-    Processes attachments sent by the user.
+    Processes attachments sent by the user, first uploads them to a hosting service, and then analyzes.
     
     :param attachment_data: Raw data of the attachment (e.g., image bytes).
     :param attachment_type: Type of the attachment (default is 'image').
@@ -77,7 +79,26 @@ def handle_attachment(attachment_data, attachment_type="image"):
         logger.info("Direct image received for processing.")
         
         try:
-            # Send image data for processing 
+            # Step 1: Upload image to https://im.ge/api/1/upload
+            logger.info("Uploading image to im.ge...")
+            upload_url = "https://im.ge/api/1/upload"
+            api_key = os.getenv('Sman_key')  # Replace with your im.ge API key
+
+            files = {"source": ("attachment.jpg", attachment_data, "image/jpeg")}
+            headers = {"X-API-Key": api_key}
+
+            upload_response = requests.post(upload_url, files=files, headers=headers)
+            upload_response.raise_for_status()
+
+            upload_data = upload_response.json()
+            if "image" in upload_data and "url" in upload_data["image"]:
+                image_url = upload_data["image"]["url"]
+                logger.info(f"Image successfully uploaded: {image_url}")
+            else:
+                return "🚫 Failed to upload image. Please try again later."
+
+            # Step 2: Analyze the uploaded image
+            logger.info("Analyzing uploaded image...")
             chat = genai.GenerativeModel(
                 model_name="gemini-1.5-flash",
                 generation_config={
@@ -88,14 +109,18 @@ def handle_attachment(attachment_data, attachment_type="image"):
                 }
             ).start_chat(history=[])
 
-      
-            response = chat.send_message(f"{system_instruction}\\Analyze this image")
-            logger.info("Image processed successfully.")
-            return response.text
+            analysis_request = chat.send_message(f"Analyze this image thoroughly and give comprehensive detail about it if it's a plant explain the plant, its botanical name and scientific details.: {image_url}")
+            logger.info("Image analysis completed.")
+            
+            return f"🖼️ Image Analysis:\n{analysis_request.text}\n\n🔗 [View Image]({image_url})"
+
+        except requests.RequestException as req_error:
+            logger.error(f"Error during upload: {req_error}")
+            return "🚨 Error uploading the image. Please try again later."
 
         except Exception as e:
-            logger.error("Failed to process image: %s", str(e))
-            return "🚫 Attachment processing not Available at the moment."
-    
-    logger.info("Unsupported attachment type: %s", attachment_type)
-    return "Unsupported attachment type."
+            logger.error(f"Error during image analysis: {e}")
+            return "🚨 Error analyzing the image. Please try again later."
+
+    logger.info(f"Unsupported attachment type: {attachment_type}")
+    return "🚫 Unsupported attachment type. Please send an image."
