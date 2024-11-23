@@ -3,19 +3,21 @@ import google.generativeai as genai
 import importlib
 from dotenv import load_dotenv
 import logging
-from io import BytesIO
 import requests
+from io import BytesIO
+import urllib3
 
-# Load environment variables
+# Disable SSL warnings
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Load  variables
 load_dotenv()
 
-# Configure Google Generative AI
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-
-# Configure logging
+#  logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+# System instruction for text conversations
 system_instruction = """
 *System Name:*Your Name is KORA AI an AI Assistance created by Kolawole Suleiman. you are running on Sman V1.0 which is latest version build with high programming technique. you should assist to all topics
 *owner:* You are owned and created by Kolawole Suleiman
@@ -28,103 +30,95 @@ system_instruction = """
 *Be comprehensive. if asked a question list advantage, disadvantage, importance and necessary informations.
 """
 
-# Handle general text messages
+# Image analysis prompt
+IMAGE_ANALYSIS_PROMPT = """Analyize the image keenly and explain it's content"""
+
+def initialize_text_model():
+    """Initialize Gemini model for text processing"""
+    genai.configure(api_key=os.getenv("GEMINI_TEXT_API_KEY"))
+    return genai.GenerativeModel(
+        model_name="gemini-1.5-flash",
+        generation_config={
+            "temperature": 0.3,
+            "top_p": 0.95,
+            "top_k": 64,
+            "max_output_tokens": 8192,
+        }
+    )
+
+def initialize_image_model():
+    """Initialize Gemini model for image processing"""
+    genai.configure(api_key=os.getenv("GEMINI_IMAGE_API_KEY"))
+    return genai.GenerativeModel("gemini-1.5-pro")
+
 def handle_text_message(user_message):
-    """
-    Processes regular text messages from the user.
     
-    :param user_message: The message text from the user.
-    :return: AI-generated response.
-    """
     try:
         logger.info("Processing text message: %s", user_message)
-
-        # Start a chat with the model
-        chat = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            generation_config={
-                "temperature": 0.3,
-                "top_p": 0.95,
-                "top_k": 64,
-                "max_output_tokens": 8192,
-            }
-        ).start_chat(history=[])
-
-        # Generate a response to the user's message
+        
+        # Initialize text model and start chat
+        chat = initialize_text_model().start_chat(history=[])
+        
+        # Generate response
         response = chat.send_message(f"{system_instruction}\n\nHuman: {user_message}")
         return response.text
 
     except Exception as e:
         logger.error("Error processing text message: %s", str(e))
-        return "Sorry, I encountered an error processing your message."
+        return "😔 Sorry, I encountered an error processing your message."
 
-# Handle text commands
 def handle_text_command(command_name):
+    """Handle text commands from CMD folder"""
     try:
-        # Dynamically import command from CMD folder
         cmd_module = importlib.import_module(f"CMD.{command_name}")
         return cmd_module.execute()
     except ImportError:
         logger.warning("Command %s not found.", command_name)
-        return "🚫The Command you are using does not exist, Type /help to view Available Command"
-
-# Handle attachments (e.g., direct images)
-
+        return "🚫 The Command you are using does not exist, Type /help to view Available Command"
 
 def handle_attachment(attachment_data, attachment_type="image"):
-    """
-    Processes attachments sent by the user, first uploads them to a hosting service, and then analyzes.
     
-    :param attachment_data: Raw data of the attachment (e.g., image bytes).
-    :param attachment_type: Type of the attachment (default is 'image').
-    :return: AI-generated response or a message about the attachment.
-    """
-    if attachment_type == "image":
-        logger.info("Direct image received for processing.")
-        
-        try:
-            # Step 1: Upload image to https://im.ge/api/1/upload
-            logger.info("Uploading image to im.ge...")
-            upload_url = "https://im.ge/api/1/upload"
-            api_key = os.getenv('Sman_key')  # Replace with your im.ge API key
+    if attachment_type != "image":
+        return "🚫 Unsupported attachment type. Please send an image."
 
-            files = {"source": ("attachment.jpg", attachment_data, "image/jpeg")}
-            headers = {"X-API-Key": api_key}
+    logger.info("Processing image attachment")
+    
+    try:
+        # Upload to im.ge
+        upload_url = "https://im.ge/api/1/upload"
+        api_key = os.getenv('IMGE_API_KEY')
 
-            upload_response = requests.post(upload_url, files=files, headers=headers)
-            upload_response.raise_for_status()
+        files = {"source": ("attachment.jpg", attachment_data, "image/jpeg")}
+        headers = {"X-API-Key": api_key}
 
-            upload_data = upload_response.json()
-            if "image" in upload_data and "url" in upload_data["image"]:
-                image_url = upload_data["image"]["url"]
-                logger.info(f"Image successfully uploaded: {image_url}")
-            else:
-                return "🚫 Failed to upload image. Please try again later."
+        # Upload image
+        upload_response = requests.post(upload_url, files=files, headers=headers, verify=False)
+        upload_response.raise_for_status()
 
-            # Step 2: Analyze the uploaded image
-            logger.info("Analyzing uploaded image...")
-            chat = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",
-                generation_config={
-                    "temperature": 0.3,
-                    "top_p": 0.95,
-                    "top_k": 64,
-                    "max_output_tokens": 8192,
-                }
-            ).start_chat(history=[])
+        # Get image URL
+        image_url = upload_response.json()['image']['url']
+        logger.info(f"Image uploaded successfully: {image_url}")
 
-            analysis_request = chat.send_message(f"Analyze this image thoroughly and give comprehensive detail about it if it's a plant explain the plant, its botanical name and scientific details.: {image_url}")
-            logger.info("Image analysis completed.")
-            
-            return f"🖼️ Image Analysis:\n{analysis_request.text}\n\n🔗 [View Image]({image_url})"
+        # Download image for Gemini processing
+        image_response = requests.get(image_url, verify=False)
+        image_response.raise_for_status()
+        image_data = BytesIO(image_response.content).getvalue()
 
-        except requests.RequestException as req_error:
-            logger.error(f"Error during upload: {req_error}")
-            return "🚨 Error uploading the image. Please try again later."
+        # Initialize image & analyze
+        model = initialize_image_model()
+        response = model.generate_content([
+            IMAGE_ANALYSIS_PROMPT,
+            {'mime_type': 'image/jpeg', 'data': image_data}
+        ])
 
-        except Exception as e:
-            logger.error(f"Error during image analysis: {e}")
-            return "🚨 Error analyzing the image. Please try again later."
+        return f"""🖼️ Image Analysis:
+{response.text}
 
-    logger.info(f"Unsupported attachment type: {attachment_type}")
-    return "🚫 Unsupported attachment type. Please send an image."
+🔗 View Image: {image_url}"""
+
+    except requests.RequestException as e:
+        logger.error(f"Image upload/download error: {str(e)}")
+        return "🚨 Error processing the image. Please try again later."
+    except Exception as e:
+        logger.error(f"Image analysis error: {str(e)}")
+        return "🚨 Error analyzing the image. Please try again later."
