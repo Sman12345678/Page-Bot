@@ -13,13 +13,7 @@ def execute():
     """
     # Default country
     country = 'us'
-    
-    # Simulated user input for a country code
-    user_input = input("Enter a country code (default is 'us'): ").strip()
-    if user_input:
-        country = user_input.lower()
-
-    try:
+ try:
         # Make the API request
         response = Sman.get(f"{SMAN_NEWS_URL}?country={country}&apiKey={SMAN_API_KEY}")
         data = response.json()
