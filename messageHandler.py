@@ -41,7 +41,7 @@ def initialize_text_model():
         generation_config={
             "temperature": 0.3,
             "top_p": 0.95,
-            "top_k": 41,
+            "top_k": 30,
             "max_output_tokens": 8192,
         }
     )
