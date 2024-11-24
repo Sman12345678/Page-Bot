@@ -6,13 +6,14 @@ import logging
 logger = logging.getLogger()
 
 def execute():
-    response = "📜 **KORA AI Command List** 📜\n\n"
-    response += "Here are the available commands:\n\n"
-
-    # Header for the command diagram
-    response += "╔════════════════════════════╗\n"
-    response += "║    📂 **Command Overview** 📂   ║\n"
-    response += "╚════════════════════════════╝\n\n"
+    # Start the response with a header and an updated diagram
+    response = (
+        "📜 **KORA AI Command List** 📜\n\n"
+        "Here are the available commands:\n\n"
+        "╭────────────────────────╮\n"
+        "│   📂 Command Overview  │\n"
+        "╰────────────────────────╯\n\n"
+    )
 
     # Iterate over each file in the CMD folder
     for filename in os.listdir("CMD"):
@@ -26,20 +27,27 @@ def execute():
                 description = getattr(cmd_module, "Info", {}).get("Description", "No description available.")
                 
                 # Append each command in a structured format with emojis
-                response += f"📌 **/{command_name}**\n"
-                response += f"   📖 *Description*: {description}\n"
-                response += "   ─────────────────────────────\n"
+                response += (
+                    f"📌 **/{command_name}**\n"
+                    f"   📖 *Description*: {description}\n"
+                    f"   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
+                )
 
             except Exception as e:
                 logger.warning(f"Failed to load command {command_name}: {e}")
-                response += f"📌 **/{command_name}**\n"
-                response += f"   📖 *Description*: Unable to load description.\n"
-                response += "   ─────────────────────────────\n"
+                response += (
+                    f"📌 **/{command_name}**\n"
+                    f"   ⚠️ *Description*: Unable to load description.\n"
+                    f"   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
+                )
 
     # Footer with some extra info or design
-    response += "\n🛠️ **Tip**: Use `/command_name` to activate a command.\n"
-    response += "💡 **For Example**: Type `/up` to check bot's status.\n"
-    response += "THANKS FOR USING 😁\n"
-    response += "🛡️ KOLAWOLE SULEIMAN\n"
+    response += (
+        "\n💡 **How to Use Commands:**\n"
+        "   - Type `/command_name` to use a command.\n"
+        "   - Example: `/up` to check the bot's status.\n\n"
+        "⚡ **Thanks for using KORA AI!** ⚡\n"
+        "   🛡️ Developed by Kolawole Suleiman\n"
+    )
 
     return response
