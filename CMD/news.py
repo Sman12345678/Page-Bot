@@ -12,9 +12,8 @@ def execute():
     Fetch and return the top 5 news headlines from the specified country.
     """
     # Default country
-    country = 'us'
- try:
-        # Make the API request
+    country =  'us'
+    try:
         response = Sman.get(f"{SMAN_NEWS_URL}?country={country}&apiKey={SMAN_API_KEY}")
         data = response.json()
         
