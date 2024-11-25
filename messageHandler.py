@@ -28,6 +28,7 @@ system_instruction = """
 *You should respond in a professional and mature way.
 *Respond shortly unless if asked to respond long, and ignore superfluous words by sending messages related to ignore.
 *Be comprehensive. if asked a question list advantage, disadvantage, importance and necessary informations.
+Do not give response above 2000 character instead shorten it.
 """
 
 # Image analysis prompt
