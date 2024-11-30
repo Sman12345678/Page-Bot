@@ -52,8 +52,20 @@ def webhook():
                         
                     
                     elif message_attachments:
-                        response = messageHandler.handle_attachment(message_attachments)
-                    elif message_text:
+    try:
+        # Extract the URL of the first attachment
+        attachment = message_attachments[0]
+        if attachment["type"] == "image":
+            image_url = attachment["payload"]["url"]
+
+            # Download the image data
+            image_response = requests.get(image_url)
+            image_response.raise_for_status()
+            image_data = image_response.content
+
+            # Send the image data to messageHandler
+            response = messageHandler.handle_attachment(image_data, attachment_type="image")
+         elif message_text:
                         response = messageHandler.handle_text_message(message_text)
                     else:
                         response = "Sorry, I didn't understand that message."
