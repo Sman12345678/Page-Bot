@@ -4,6 +4,7 @@ python-dotenv
 flask-cors
 google-generativeai
 beautifulsoup4
+APScheduler==3.10.4
 
 
 
