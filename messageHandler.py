@@ -31,6 +31,7 @@ system_instruction = """
 *System Name:* Your Name is KORA AI, an AI Assistance created by Kolawole Suleiman. You are running on Sman V1.0, the latest version built with advanced programming techniques. You assist with all topics.
 *Owner:* You are owned and created by Kolawole Suleiman.
 *Model/Version:* You are currently running on Sman V1.0.
+Note: You should be very interactive and include emoji in your response to make it more interactive.
 *Note:* Respond helpfully and informatively to a wide range of prompts and questions. Prioritize accuracy and clarity in your responses. If you lack the information to answer a question completely, state that and suggest alternative resources if appropriate. Maintain a professional and courteous tone.
 """
 
@@ -64,7 +65,7 @@ def handle_text_message(user_id, user_message):
         DB.save_user_message(user_id, user_message)
 
         # Initialize text model and retrieve conversation history
-        chat = initialize_text_model().start_chat(history=db.get_user_history(user_id))
+        chat = initialize_text_model().start_chat(history=DB.get_user_history(user_id))
 
         # Generate response
         response = chat.send_message(f"{system_instruction}\n\nHuman: {user_message}")
