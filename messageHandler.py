@@ -57,24 +57,36 @@ def initialize_image_model():
     return genai.GenerativeModel("gemini-1.5-pro")
 
 def handle_text_message(user_id, user_message):
-    """Handle text message."""
+    """
+    Process a text message, generate a response, and save the conversation in the database.
+    :param user_id: Unique identifier for the user.
+    :param user_message: The message sent by the user.
+    :return: The bot's response.
+    """
     try:
-        logger.info("Processing text message from %s: %s", user_id, user_message)
+        logger.info("Processing text message from user %s: %s", user_id, user_message)
+        
+        # Fetch user history and validate roles
+        history = DB.get_user_history(user_id)
+        for message in history:
+            if message["role"] not in ["user", "model"]:
+                logger.error("Invalid role in history: %s", message)
+                return "😔 An error occurred due to invalid conversation history."
+        
+        # Append the user's new message to history
+        history.append({"role": "user", "content": user_message})
 
-        # Save user message to the database
-        DB.save_user_message(user_id, user_message)
-
-        # Initialize text model and retrieve conversation history
-        chat = initialize_text_model().start_chat(history=DB.get_user_history(user_id))
-
-        # Generate response
+        # Initialize the text model and generate a response
+        chat = initialize_text_model().start_chat(history=history)
         response = chat.send_message(f"{system_instruction}\n\nHuman: {user_message}")
-        DB.save_bot_response(user_id, response.text)
-
+        
+        # Save the user's message and the model's response to the database
+        DB.save_message(user_id, "user", user_message)
+        DB.save_message(user_id, "model", response.text)
+        
         return response.text
-
     except Exception as e:
-        logger.error("Error processing text message: %s", str(e))
+        logger.error("Error processing text message for user %s: %s", user_id, str(e))
         return "😔 Sorry, I encountered an error processing your message."
 
 def handle_text_command(user_id, command_name):
