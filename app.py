@@ -49,7 +49,7 @@ def webhook():
                     message_command = event["message"].get("text")
 
                     # Log the user interaction in the database
-                    DB.log_user_interaction(sender_id, message_text)
+             
 
                     # Check if message has text with a command prefix
                     if message_command and message_command.startswith(PREFIX):
