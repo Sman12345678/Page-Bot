@@ -52,9 +52,10 @@ def webhook():
                         
                     
                     elif message_attachments:
-    try:
+                         try:
         # Extract the URL of the first attachment
-        attachment = message_attachments[0]
+        
+                            attachment = message_attachments[0]
         if attachment["type"] == "image":
             image_url = attachment["payload"]["url"]
 
