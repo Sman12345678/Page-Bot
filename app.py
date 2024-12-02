@@ -5,9 +5,7 @@ from dotenv import load_dotenv
 from flask_cors import CORS
 import requests
 import messageHandler  # Import the message handler module
-import DB  # Import the database module
 import time
-from apscheduler.schedulers.background import BackgroundScheduler
 
 # Load environment variables
 load_dotenv()
@@ -48,33 +46,27 @@ def webhook():
                     message_attachments = event["message"].get("attachments")
                     message_command = event["message"].get("text")
 
-                    # Log the user interaction in the database
-             
-
                     # Check if message has text with a command prefix
                     if message_command and message_command.startswith(PREFIX):
-                        response = messageHandler.handle_text_command(message_command[len(PREFIX):], sender_id)
+                        response = messageHandler.handle_text_command(message_command[len(PREFIX):])
+                        
                     
                     elif message_attachments:
-                        try:
-                            # Extract the URL of the first attachment
-                            attachment = message_attachments[0]
-                            if attachment["type"] == "image":
-                                image_url = attachment["payload"]["url"]
+    try:
+        # Extract the URL of the first attachment
+        attachment = message_attachments[0]
+        if attachment["type"] == "image":
+            image_url = attachment["payload"]["url"]
 
-                                # Download the image data
-                                image_response = requests.get(image_url)
-                                image_response.raise_for_status()
-                                image_data = image_response.content
+            # Download the image data
+            image_response = requests.get(image_url)
+            image_response.raise_for_status()
+            image_data = image_response.content
 
-                                # Send the image data to messageHandler
-                                response = messageHandler.handle_attachment(image_data, sender_id, attachment_type="image")
-                        except Exception as e:
-                            logger.error("Error handling attachment: %s", str(e))
-                            response = "Sorry, I couldn't process the attachment."
-                    
-                    elif message_text:
-                        response = messageHandler.handle_text_message(message_text, sender_id)
+            # Send the image data to messageHandler
+            response = messageHandler.handle_attachment(image_data, attachment_type="image")
+         elif message_text:
+                        response = messageHandler.handle_text_message(message_text)
                     else:
                         response = "Sorry, I didn't understand that message."
 
@@ -113,15 +105,9 @@ start_time = time.time()
 def get_bot_uptime():
     return time.time() - start_time
 
-# Cleanup task to remove old conversations
-def cleanup_conversations():
-    logger.info("Running daily cleanup task...")
-    DB.cleanup_old_conversations()
 
-# Schedule the cleanup task
-scheduler = BackgroundScheduler()
-scheduler.add_job(cleanup_conversations, 'interval', hours=24)
-scheduler.start()
+
+
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=3000)
+    app.run(debug=True,host='0.0.0.0',port=3000)
