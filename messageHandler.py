@@ -68,11 +68,11 @@ def handle_text_message(user_message):
         logger.error("Error processing text message: %s", str(e))
         return "😔 Sorry, I encountered an error processing your message."
 
-def handle_text_command(command_name):
+def handle_text_command(command_name,*args,**kwargs):
     """Handle text commands from CMD folder"""
     try:
         cmd_module = importlib.import_module(f"CMD.{command_name}")
-        return cmd_module.execute()
+        return cmd_module.execute(*args,**kwargs)
     except ImportError:
         logger.warning("Command %s not found.", command_name)
         return "🚫 The Command you are using does not exist, Type /help to view Available Command"
