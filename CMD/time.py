@@ -4,7 +4,7 @@ Info = {
     "Description":"Time and Date. Depending on your time Zone"
 }
 
-def execute():
+def execute(message=None):
     # Get the current time and date information
     localtime = time.localtime(time.time())
     period = time.asctime(localtime)
