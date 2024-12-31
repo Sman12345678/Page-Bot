@@ -19,7 +19,7 @@ def format_duration(seconds):
     minutes, seconds = divmod(seconds, 60)
     return f"{int(days)}d {int(hours)}h {int(minutes)}m {int(seconds)}s"
 
-def execute():
+def execute(message=None):
     """
     Generate and return the bot's status report.
     """
@@ -31,9 +31,9 @@ def execute():
 
     # Visual and structured response
     response = (
-        "╭───────────────────────────╮\n"
+        "╭──────────────────────╮\n"
         "│       🤖 KORA AI Status       │\n"
-        "╰───────────────────────────╯\n\n"
+        "╰──────────────────────╯\n\n"
         f"🔷 Bot Name: {Info['bot_name']}\n"
         f"👤 Owner: {Info['owner']}\n"
         f"📌 Version: {Info['version']}\n"
@@ -41,9 +41,9 @@ def execute():
         f"📅 Last Update: {Info['last_update']}\n\n"
         "⏳ Uptime:\n"
         f"   🕒 {uptime_str}\n\n"
-        "╭───────────────────────────╮\n"
+        "╭────────────────────────╮\n"
         "│ 🙏 Thank you for using KORA AI! │\n"
-        "╰───────────────────────────╯\n"
+        "╰────────────────────────╯\n"
     )
 
     return response
