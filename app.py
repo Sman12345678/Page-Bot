@@ -45,11 +45,12 @@ def webhook():
                     message_text = event["message"].get("text")
                     message_attachments = event["message"].get("attachments")
                     message_command = event["message"].get("text")
-
-                    # Check if message has text with a command prefix
-                    if message_command and message_command.startswith(PREFIX):
-                        response = messageHandler.handle_text_command(message=message_command[len(PREFIX):])
-                    
+#Check if message has text with a command prefix
+if message_command and message_command.startswith(PREFIX):
+    sliced_message = message_command[len(PREFIX):]
+    command_name = sliced_message.split()[0]
+    message = sliced_message[len(command_name):].strip()
+    response = messageHandler.handle_text_command(command_name, message)
                     elif message_attachments:
                         try:
                             # Extract the URL of the first attachment
