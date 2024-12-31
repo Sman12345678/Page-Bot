@@ -5,7 +5,7 @@ Info = {
     "Description":"Get Random quotes to Motivate you"
 }
 
-def execute():
+def execute(message=None):
     # Scrape quotes from the website
     url = "http://quotes.toscrape.com/"
     response = requests.get(url)
