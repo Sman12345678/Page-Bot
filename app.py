@@ -6,6 +6,8 @@ from flask_cors import CORS
 import requests
 import messageHandler  # Import the message handler module
 import time
+from io import BytesIO
+
 
 # Load environment variables
 load_dotenv()
