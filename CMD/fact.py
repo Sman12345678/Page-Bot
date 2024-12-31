@@ -1,6 +1,6 @@
 import random
 
-def execute():
+def execute(message=None):
     facts = [
         "The first computer virus, 'Brain,' was created in 1986 by two Pakistani brothers.",
         "Python was named after the British comedy series 'Monty Python's Flying Circus.'",
