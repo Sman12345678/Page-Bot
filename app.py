@@ -102,40 +102,46 @@ def webhook():
     return "EVENT_RECEIVED", 200
 
 # Send message back to Facebook
-def send_message(recipient_id, message_data):
-    """
-    Send a message or image back to the user.
-
-    Args:
-        recipient_id (str): The recipient's Facebook ID.
-        message_data (dict): Contains 'type' (text or image) and the content.
-    """
+def send_message(recipient_id, message=None, image_data=None, audio_data=None):
     params = {"access_token": PAGE_ACCESS_TOKEN}
-    headers = {"Content-Type": "application/json"}
 
-    if message_data["type"] == "text":
+    if image_data:  # Sending an image
+        files = {
+            "recipient": f'{{"id":"{recipient_id}"}}',
+            "message": '{"attachment":{"type":"image", "payload":{}}}',
+            "filedata": ("image.jpg", image_data, "image/jpeg"),
+        }
+        response = requests.post(
+            f"https://graph.facebook.com/v21.0/me/messages",
+            params=params,
+            files=files
+        )
+    elif audio_data:  # Sending audio
+        files = {
+            "recipient": f'{{"id":"{recipient_id}"}}',
+            "message": '{"attachment":{"type":"audio", "payload":{}}}',
+            "filedata": ("audio.mp3", audio_data, "audio/mpeg"),
+        }
+        response = requests.post(
+            f"https://graph.facebook.com/v21.0/me/messages",
+            params=params,
+            files=files
+        )
+    elif message:  # Sending text
+        headers = {"Content-Type": "application/json"}
         data = {
             "recipient": {"id": recipient_id},
-            "message": {"text": message_data["content"]},
+            "message": {"text": message},
         }
-    elif message_data["type"] == "image":
-        data = {
-            "recipient": {"id": recipient_id},
-            "message": {"attachment": {
-                "type": "image",
-                "payload": {"attachment_id": message_data["content"]}
-            }},
-        }
+        response = requests.post(
+            f"https://graph.facebook.com/v21.0/me/messages",
+            params=params,
+            headers=headers,
+            json=data
+        )
     else:
-        logger.error("Unsupported message type.")
+        logger.error("No valid data to send.")
         return
-
-    response = requests.post(
-        "https://graph.facebook.com/v21.0/me/messages",
-        params=params,
-        headers=headers,
-        json=data,
-    )
 
     if response.status_code == 200:
         logger.info("Message sent successfully to user %s", recipient_id)
@@ -144,34 +150,6 @@ def send_message(recipient_id, message_data):
             logger.error("Failed to send message: %s", response.json())
         except Exception:
             logger.error("Failed to send message. Status code: %d", response.status_code)
-
-# Upload image to Facebook Graph API
-def upload_image_to_graph(image_data):
-    """
-    Upload an image to Facebook Graph API.
-
-    Args:
-        image_data (BytesIO): The image data in bytes.
-
-    Returns:
-        dict: Response containing success status and attachment ID.
-    """
-    params = {"access_token": PAGE_ACCESS_TOKEN}
-    files = {"filedata": ("image.jpg", image_data, "image/jpeg")}
-
-    response = requests.post(
-        "https://graph.facebook.com/v21.0/me/message_attachments",
-        params=params,
-        files=files,
-    )
-
-    if response.status_code == 200:
-        attachment_id = response.json().get("attachment_id")
-        logger.info("Image uploaded successfully with attachment ID: %s", attachment_id)
-        return {"success": True, "attachment_id": attachment_id}
-    else:
-        logger.error("Failed to upload image: %s", response.json())
-        return {"success": False}
 
 # Test page access token validity
 @app.before_request
