@@ -7,7 +7,7 @@ Info = {
 SMAN_API_KEY = '2700cb22fb254ad9b409ff1ff6bc9278'
 SMAN_NEWS_URL = 'https://newsapi.org/v2/top-headlines'
 
-def execute():
+def execute(message=None):
     """
     Fetch and return the top 5 news headlines from the specified country.
     """
