@@ -5,14 +5,14 @@ import logging
 # Configure logging
 logger = logging.getLogger()
 
-def execute():
+def execute(message=None):
     # Start the response with a header and an updated diagram
     response = (
         "📜 **KORA AI Command List** 📜\n\n"
         "Here are the available commands:\n\n"
-        "╭────────────────────────╮\n"
+        "╭───────────────────╮\n"
         "│   📂 Command Overview  │\n"
-        "╰────────────────────────╯\n\n"
+        "╰───────────────────╯\n\n"
     )
 
     # Iterate over each file in the CMD folder
