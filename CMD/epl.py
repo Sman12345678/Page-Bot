@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 Info = {
     "Description":"Get News About English Premier League"
 }
-def execute():
+def execute(message=None):
     # Define the URL to scrape for EPL news from Sky Sports
     url = "https://www.skysports.com/premier-league-news"
 
