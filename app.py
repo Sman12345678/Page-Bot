@@ -8,7 +8,6 @@ import messageHandler  # Import the message handler module
 import time
 from io import BytesIO
 
-
 # Load environment variables
 load_dotenv()
 
@@ -22,6 +21,28 @@ logger = logging.getLogger()
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 PREFIX = os.getenv("PREFIX", "/")
+
+# Function to upload an image to Facebook's Graph API
+def upload_image_to_graph(image_data):
+    """
+    Uploads an image to the Facebook Graph API and returns the attachment ID.
+    """
+    url = f"https://graph.facebook.com/v21.0/me/message_attachments"
+    params = {"access_token": PAGE_ACCESS_TOKEN}
+    files = {
+        "filedata": ("image.jpg", image_data, "image/jpeg"),
+    }
+    try:
+        response = requests.post(url, params=params, files=files)
+        if response.status_code == 200:
+            result = response.json()
+            return {"success": True, "attachment_id": result.get("attachment_id")}
+        else:
+            logger.error("Failed to upload image: %s", response.json())
+            return {"success": False, "error": response.json()}
+    except Exception as e:
+        logger.error("Error in upload_image_to_graph: %s", str(e))
+        return {"success": False, "error": str(e)}
 
 # Verification endpoint for Facebook webhook
 @app.route('/webhook', methods=['GET'])
