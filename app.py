@@ -85,9 +85,9 @@ def webhook():
                                 else:
                                     send_message(sender_id, {"type": "text", "content": "🚨 Failed to upload the image."})
                             else:
-                                send_message(sender_id, {"type": "text", "content": response["data"]})
+                                send_message(sender_id, response["data"])
                         else:
-                            send_message(sender_id, {"type": "text", "content": response})
+                            send_message(sender_id, response)
 
                     elif message_attachments:
                         try:
@@ -103,66 +103,48 @@ def webhook():
                                     image_data = image_response.content
                                     # Send the image data to messageHandler
                                     response = messageHandler.handle_attachment(image_data, attachment_type="image")
-                                    send_message(sender_id, {"type": "text", "content": response})
+                                    send_message(sender_id, response)
                                 except requests.exceptions.RequestException as e:
                                     logger.error("Failed to download image: %s", str(e))
-                                    response = "Failed to process the image attachment."
-                                    send_message(sender_id, {"type": "text", "content": response})
+                                    send_message(sender_id, "Failed to process the image attachment.")
                         except Exception as e:
                             logger.error("Error handling attachment: %s", str(e))
-                            response = "Error processing attachment."
-                            send_message(sender_id, {"type": "text", "content": response})
+                            send_message(sender_id, "Error processing attachment.")
 
                     elif message_text:
                         response = messageHandler.handle_text_message(message_text)
-                        send_message(sender_id, {"type": "text", "content": response})
+                        send_message(sender_id, response)
 
                     else:
-                        send_message(sender_id, {"type": "text", "content": "Sorry, I didn't understand that message."})
+                        send_message(sender_id, "Sorry, I didn't understand that message.")
 
     return "EVENT_RECEIVED", 200
 
 # Send message back to Facebook
-def send_message(recipient_id, message=None, image_data=None, audio_data=None):
+def send_message(recipient_id, message=None):
     params = {"access_token": PAGE_ACCESS_TOKEN}
 
-    if image_data:  # Sending an image
-        files = {
-            "recipient": f'{{"id":"{recipient_id}"}}',
-            "message": '{"attachment":{"type":"image", "payload":{}}}',
-            "filedata": ("image.jpg", image_data, "image/jpeg"),
-        }
-        response = requests.post(
-            f"https://graph.facebook.com/v21.0/me/messages",
-            params=params,
-            files=files
-        )
-    elif audio_data:  # Sending audio
-        files = {
-            "recipient": f'{{"id":"{recipient_id}"}}',
-            "message": '{"attachment":{"type":"audio", "payload":{}}}',
-            "filedata": ("audio.mp3", audio_data, "audio/mpeg"),
-        }
-        response = requests.post(
-            f"https://graph.facebook.com/v21.0/me/messages",
-            params=params,
-            files=files
-        )
-    elif message:  # Sending text
-        headers = {"Content-Type": "application/json"}
-        data = {
-            "recipient": {"id": recipient_id},
-            "message": {"text": message},
-        }
-        response = requests.post(
-            f"https://graph.facebook.com/v21.0/me/messages",
-            params=params,
-            headers=headers,
-            json=data
-        )
-    else:
-        logger.error("No valid data to send.")
-        return
+    if not isinstance(message, str):
+        logger.error("Message content is not a string: %s", message)
+        message = str(message) if message else "An error occurred while processing your request."
+    try:
+        message = message.encode("utf-8").decode("utf-8")
+    except Exception as e:
+        logger.error("Failed to encode message to UTF-8: %s", str(e))
+        message = "An error occurred while processing your request."
+
+    headers = {"Content-Type": "application/json"}
+    data = {
+        "recipient": {"id": recipient_id},
+        "message": {"text": message},
+    }
+
+    response = requests.post(
+        f"https://graph.facebook.com/v21.0/me/messages",
+        params=params,
+        headers=headers,
+        json=data
+    )
 
     if response.status_code == 200:
         logger.info("Message sent successfully to user %s", recipient_id)
