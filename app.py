@@ -22,6 +22,7 @@ VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 PREFIX = os.getenv("PREFIX", "/")
 
+
 # Function to upload an image to Facebook's Graph API
 def upload_image_to_graph(image_data):
     """
@@ -32,8 +33,12 @@ def upload_image_to_graph(image_data):
     files = {
         "filedata": ("image.jpg", image_data, "image/jpeg"),
     }
+    data = {
+        "message": '{"attachment":{"type":"image", "payload":{}}}'
+    }
+
     try:
-        response = requests.post(url, params=params, files=files)
+        response = requests.post(url, params=params, files=files, data=data)
         if response.status_code == 200:
             result = response.json()
             return {"success": True, "attachment_id": result.get("attachment_id")}
@@ -44,6 +49,7 @@ def upload_image_to_graph(image_data):
         logger.error("Error in upload_image_to_graph: %s", str(e))
         return {"success": False, "error": str(e)}
 
+
 # Verification endpoint for Facebook webhook
 @app.route('/webhook', methods=['GET'])
 def verify():
@@ -53,6 +59,7 @@ def verify():
         return request.args.get("hub.challenge", "")
     logger.error("Webhook verification failed: invalid verify token.")
     return "Verification failed", 403
+
 
 # Main webhook endpoint to handle messages
 @app.route('/webhook', methods=['POST'])
@@ -83,7 +90,7 @@ def webhook():
                                 if upload_response.get("success"):
                                     send_message(sender_id, {"type": "image", "content": upload_response["attachment_id"]})
                                 else:
-                                    send_message(sender_id, {"type": "text", "content": "🚨 Failed to upload the image."})
+                                    send_message(sender_id, "🚨 Failed to upload the image.")
                             else:
                                 send_message(sender_id, response["data"])
                         else:
@@ -120,25 +127,47 @@ def webhook():
 
     return "EVENT_RECEIVED", 200
 
+
 # Send message back to Facebook
 def send_message(recipient_id, message=None):
     params = {"access_token": PAGE_ACCESS_TOKEN}
 
-    if not isinstance(message, str):
-        logger.error("Message content is not a string: %s", message)
-        message = str(message) if message else "An error occurred while processing your request."
-    try:
-        message = message.encode("utf-8").decode("utf-8")
-    except Exception as e:
-        logger.error("Failed to encode message to UTF-8: %s", str(e))
-        message = "An error occurred while processing your request."
+    if isinstance(message, dict):  # Handle structured messages
+        if message["type"] == "image":
+            attachment_id = message["content"]
+            data = {
+                "recipient": {"id": recipient_id},
+                "message": {
+                    "attachment": {
+                        "type": "image",
+                        "payload": {"attachment_id": attachment_id}
+                    }
+                },
+            }
+        elif message["type"] == "text":
+            message = message["content"]
+            data = {
+                "recipient": {"id": recipient_id},
+                "message": {"text": message},
+            }
+        else:
+            logger.error("Unsupported message type: %s", message)
+            return
+    else:
+        if not isinstance(message, str):
+            logger.error("Message content is not a string: %s", message)
+            message = str(message) if message else "An error occurred while processing your request."
+        try:
+            message = message.encode("utf-8").decode("utf-8")
+        except Exception as e:
+            logger.error("Failed to encode message to UTF-8: %s", str(e))
+            message = "An error occurred while processing your request."
+        data = {
+            "recipient": {"id": recipient_id},
+            "message": {"text": message},
+        }
 
     headers = {"Content-Type": "application/json"}
-    data = {
-        "recipient": {"id": recipient_id},
-        "message": {"text": message},
-    }
-
     response = requests.post(
         f"https://graph.facebook.com/v21.0/me/messages",
         params=params,
@@ -154,6 +183,7 @@ def send_message(recipient_id, message=None):
         except Exception:
             logger.error("Failed to send message. Status code: %d", response.status_code)
 
+
 # Test page access token validity
 @app.before_request
 def check_page_access_token():
@@ -164,11 +194,14 @@ def check_page_access_token():
     else:
         logger.error("Invalid page access token: %s", response.json())
 
+
 start_time = time.time()
+
 
 # Expose the start_time so CMD can access it
 def get_bot_uptime():
     return time.time() - start_time
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=3000)
