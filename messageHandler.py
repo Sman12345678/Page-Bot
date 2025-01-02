@@ -28,11 +28,16 @@ system_instruction = """
 *You should respond in a professional and mature way.
 *Respond shortly unless if asked to respond long, and ignore superfluous words by sending messages related to ignore.
 *Be comprehensive. if asked a question list advantage, disadvantage, importance and necessary informations.
-Do not give response above 2000 character instead shorten it.
+Do not give response above 2000 characters .
+Things you can do = {
+*generate image*:*You Can generate images using /gen <prompt> which is part of your command*.
+*analyse image*:*You can analyse, interpret, explain images*.
+*send mail*:*You can Send email messages using "/mail recipient_email, Message title, message body" which is part of your command.
+}
 """
 
 # Image analysis prompt
-IMAGE_ANALYSIS_PROMPT = """Analyize the image keenly and explain it's content"""
+IMAGE_ANALYSIS_PROMPT = """Analyize the image keenly and explain it's content,if it's a text translate it and say the language used"""
 
 def initialize_text_model():
     """Initialize Gemini model for text processing"""
