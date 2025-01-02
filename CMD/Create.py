@@ -48,3 +48,5 @@ def execute(message=None):
             }
     except requests.exceptions.RequestException as e:
         return {"success": False, "data": f"🚨 Request failed: {str(e)}"}
+
+# Example usage:
