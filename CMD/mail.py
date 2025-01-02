@@ -21,7 +21,7 @@ def execute(message):
     SMTP_SERVER = "smtp.gmail.com"  # Replace with your SMTP server
     SMTP_PORT = 587  # Port for TLS
     SMTP_USERNAME = "quickmail487@gmail.com"  # Replace with your email
-    SMTP_PASSWORD = "your_password"  # Replace with your email password
+    SMTP_PASSWORD = "wuzt iurl zihx nvdn"  # Replace with your email password
 
     try:
         # Validate and parse the input message
