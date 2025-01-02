@@ -27,6 +27,7 @@ def execute(message=None):
     headers = {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-C3eN21tQ11SZxvAqpGsm1FqAYdvdX9wreD5c6MrVBNCxrhQv"
+    }
     
     data = {
         "model": "dall-e-3",
