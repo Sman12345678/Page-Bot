@@ -30,17 +30,17 @@ def execute(message=None):
         response = requests.post(url, headers=headers, json=data)
         if response.status_code == 200:
             result = response.json()
-            images = []
+            image_data = []
             for img_data in result.get('data', []):
                 img_url = img_data.get('url')
                 if img_url:
                     img_response = requests.get(img_url)
                     if img_response.status_code == 200:
                         img = BytesIO(img_response.content)
-                        images.append(img)
+                        image_data.append(img)
                     else:
                         return {"success": False, "data": f"🚨 Failed to fetch image from URL: {img_url}"}
-            return {"success": True, "images": images}
+            return {"success": True, "images": image_data}
         else:
             return {
                 "success": False,
