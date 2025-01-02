@@ -4,9 +4,9 @@ from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 from flask_cors import CORS
 import requests
-import messageHandler  # Import the message handler module
-import time
 from io import BytesIO
+import time
+import messageHandler  # Custom module for handling commands and responses
 
 # Load environment variables
 load_dotenv()
@@ -22,34 +22,6 @@ VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 PREFIX = os.getenv("PREFIX", "/")
 
-
-# Function to upload an image to Facebook's Graph API
-def upload_image_to_graph(image_data):
-    """
-    Uploads an image to the Facebook Graph API and returns the attachment ID.
-    """
-    url = f"https://graph.facebook.com/v21.0/me/message_attachments"
-    params = {"access_token": PAGE_ACCESS_TOKEN}
-    files = {
-        "filedata": ("image.jpg", image_data, "image/jpeg"),
-    }
-    data = {
-        "message": '{"attachment":{"type":"image", "payload":{}}}'
-    }
-
-    try:
-        response = requests.post(url, params=params, files=files, data=data)
-        if response.status_code == 200:
-            result = response.json()
-            return {"success": True, "attachment_id": result.get("attachment_id")}
-        else:
-            logger.error("Failed to upload image: %s", response.json())
-            return {"success": False, "error": response.json()}
-    except Exception as e:
-        logger.error("Error in upload_image_to_graph: %s", str(e))
-        return {"success": False, "error": str(e)}
-
-
 # Verification endpoint for Facebook webhook
 @app.route('/webhook', methods=['GET'])
 def verify():
@@ -59,7 +31,6 @@ def verify():
         return request.args.get("hub.challenge", "")
     logger.error("Webhook verification failed: invalid verify token.")
     return "Verification failed", 403
-
 
 # Main webhook endpoint to handle messages
 @app.route('/webhook', methods=['POST'])
@@ -74,134 +45,136 @@ def webhook():
                     sender_id = event["sender"]["id"]
                     message_text = event["message"].get("text")
                     message_attachments = event["message"].get("attachments")
-                    message_command = event["message"].get("text")
 
-                    # Check if message has text with a command prefix
-                    if message_command and message_command.startswith(PREFIX):
-                        sliced_message = message_command[len(PREFIX):]
+                    # Check if the message starts with a command prefix
+                    if message_text and message_text.startswith(PREFIX):
+                        sliced_message = message_text[len(PREFIX):]
                         command_name = sliced_message.split()[0]
                         message = sliced_message[len(command_name):].strip()
                         response = messageHandler.handle_text_command(command_name, message)
 
                         # Handle image response
                         if isinstance(response, dict) and response.get("success"):
-                            if isinstance(response["data"], BytesIO):  # Check if the response is an image
+                            if isinstance(response["data"], BytesIO):  # Image response
                                 upload_response = upload_image_to_graph(response["data"])
                                 if upload_response.get("success"):
                                     send_message(sender_id, {"type": "image", "content": upload_response["attachment_id"]})
                                 else:
-                                    send_message(sender_id, "🚨 Failed to upload the image.")
+                                    send_message(sender_id, {"type": "text", "content": "🚨 Failed to upload the image."})
                             else:
-                                send_message(sender_id, response["data"])
+                                send_message(sender_id, {"type": "text", "content": response["data"]})
                         else:
-                            send_message(sender_id, response)
+                            send_message(sender_id, {"type": "text", "content": response})
 
                     elif message_attachments:
+                        # Handle attachments
                         try:
-                            # Extract the URL of the first attachment
                             attachment = message_attachments[0]
                             if attachment["type"] == "image":
                                 image_url = attachment["payload"]["url"]
-
-                                # Download the image data
-                                try:
-                                    image_response = requests.get(image_url)
-                                    image_response.raise_for_status()
-                                    image_data = image_response.content
-                                    # Send the image data to messageHandler
-                                    response = messageHandler.handle_attachment(image_data, attachment_type="image")
-                                    send_message(sender_id, response)
-                                except requests.exceptions.RequestException as e:
-                                    logger.error("Failed to download image: %s", str(e))
-                                    send_message(sender_id, "Failed to process the image attachment.")
+                                image_response = requests.get(image_url)
+                                image_response.raise_for_status()
+                                image_data = image_response.content
+                                response = messageHandler.handle_attachment(image_data, attachment_type="image")
+                                send_message(sender_id, {"type": "text", "content": response})
                         except Exception as e:
                             logger.error("Error handling attachment: %s", str(e))
-                            send_message(sender_id, "Error processing attachment.")
+                            send_message(sender_id, {"type": "text", "content": "🚨 Error processing attachment."})
 
                     elif message_text:
+                        # Handle regular text message
                         response = messageHandler.handle_text_message(message_text)
-                        send_message(sender_id, response)
+                        send_message(sender_id, {"type": "text", "content": response})
 
                     else:
-                        send_message(sender_id, "Sorry, I didn't understand that message.")
+                        send_message(sender_id, {"type": "text", "content": "Sorry, I didn't understand that message."})
 
     return "EVENT_RECEIVED", 200
 
-
 # Send message back to Facebook
-def send_message(recipient_id, message=None):
+def send_message(recipient_id, message=None, image_data=None, audio_data=None):
     params = {"access_token": PAGE_ACCESS_TOKEN}
 
-    if isinstance(message, dict):  # Handle structured messages
-        if message["type"] == "image":
-            attachment_id = message["content"]
-            data = {
-                "recipient": {"id": recipient_id},
-                "message": {
-                    "attachment": {
-                        "type": "image",
-                        "payload": {"attachment_id": attachment_id}
-                    }
-                },
+    try:
+        # Handle image message
+        if image_data:
+            files = {
+                "recipient": f'{{"id":"{recipient_id}"}}',
+                "message": '{"attachment":{"type":"image", "payload":{}}}',
+                "filedata": ("image.jpg", image_data, "image/jpeg"),
             }
-        elif message["type"] == "text":
-            message = message["content"]
-            data = {
-                "recipient": {"id": recipient_id},
-                "message": {"text": message},
+            response = requests.post(
+                f"https://graph.facebook.com/v21.0/me/messages",
+                params=params,
+                files=files
+            )
+
+        # Handle audio message
+        elif audio_data:
+            files = {
+                "recipient": f'{{"id":"{recipient_id}"}}',
+                "message": '{"attachment":{"type":"audio", "payload":{}}}',
+                "filedata": ("audio.mp3", audio_data, "audio/mpeg"),
             }
+            response = requests.post(
+                f"https://graph.facebook.com/v21.0/me/messages",
+                params=params,
+                files=files
+            )
+
+        # Handle text message
+        elif message and isinstance(message, dict) and "type" in message and "content" in message:
+            if message["type"] == "text":
+                headers = {"Content-Type": "application/json"}
+                data = {
+                    "recipient": {"id": recipient_id},
+                    "message": {"text": message["content"]},
+                }
+                response = requests.post(
+                    f"https://graph.facebook.com/v21.0/me/messages",
+                    params=params,
+                    headers=headers,
+                    json=data
+                )
+            else:
+                raise ValueError(f"Unsupported message type: {message['type']}")
+        
         else:
-            logger.error("Unsupported message type: %s", message)
-            return
-    else:
-        if not isinstance(message, str):
-            logger.error("Message content is not a string: %s", message)
-            message = str(message) if message else "An error occurred while processing your request."
-        try:
-            message = message.encode("utf-8").decode("utf-8")
-        except Exception as e:
-            logger.error("Failed to encode message to UTF-8: %s", str(e))
-            message = "An error occurred while processing your request."
-        data = {
-            "recipient": {"id": recipient_id},
-            "message": {"text": message},
-        }
+            raise ValueError("Invalid message format or missing data.")
 
-    headers = {"Content-Type": "application/json"}
-    response = requests.post(
-        f"https://graph.facebook.com/v21.0/me/messages",
-        params=params,
-        headers=headers,
-        json=data
-    )
+        # Check response status
+        if response.status_code == 200:
+            logger.info("Message sent successfully to user %s", recipient_id)
+        else:
+            try:
+                logger.error("Failed to send message: %s", response.json())
+            except Exception:
+                logger.error("Failed to send message. Status code: %d", response.status_code)
 
-    if response.status_code == 200:
-        logger.info("Message sent successfully to user %s", recipient_id)
-    else:
-        try:
-            logger.error("Failed to send message: %s", response.json())
-        except Exception:
-            logger.error("Failed to send message. Status code: %d", response.status_code)
+    except Exception as e:
+        logger.error("Error sending message: %s", str(e))
 
+# Function to upload image to Facebook Graph API
+def upload_image_to_graph(image_data):
+    try:
+        params = {"access_token": PAGE_ACCESS_TOKEN}
+        files = {"filedata": ("image.jpg", image_data, "image/jpeg")}
+        response = requests.post(
+            f"https://graph.facebook.com/v21.0/me/message_attachments",
+            params=params,
+            files=files
+        )
 
-# Test page access token validity
-@app.before_request
-def check_page_access_token():
-    test_url = f"https://graph.facebook.com/me?access_token={PAGE_ACCESS_TOKEN}"
-    response = requests.get(test_url)
-    if response.status_code == 200:
-        logger.info("Page access token is valid.")
-    else:
-        logger.error("Invalid page access token: %s", response.json())
+        if response.status_code == 200:
+            data = response.json()
+            return {"success": True, "attachment_id": data.get("attachment_id")}
+        else:
+            return {"success": False, "data": response.json()}
 
+    except Exception as e:
+        logger.error("Failed to upload image: %s", str(e))
+        return {"success": False, "data": f"🚨 Error: {str(e)}"}
 
-start_time = time.time()
-
-
-# Expose the start_time so CMD can access it
-def get_bot_uptime():
-    return time.time() - start_time
-
-
+# Start the server
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=3000)
