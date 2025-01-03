@@ -25,17 +25,10 @@ PREFIX = os.getenv("PREFIX", "/")
 
 # Function to upload an image to Facebook's Graph API
 def upload_image_to_graph(image_data):
-    """
-    Uploads an image to the Facebook Graph API and returns the attachment ID.
-    """
     url = f"https://graph.facebook.com/v21.0/me/message_attachments"
     params = {"access_token": PAGE_ACCESS_TOKEN}
-    files = {
-        "filedata": ("image.jpg", image_data, "image/jpeg"),
-    }
-    data = {
-        "message": '{"attachment":{"type":"image", "payload":{}}}'
-    }
+    files = {"filedata": ("image.jpg", image_data, "image/jpeg")}
+    data = {"message": '{"attachment":{"type":"image", "payload":{}}}'}
 
     try:
         response = requests.post(url, params=params, files=files, data=data)
@@ -47,6 +40,26 @@ def upload_image_to_graph(image_data):
             return {"success": False, "error": response.json()}
     except Exception as e:
         logger.error("Error in upload_image_to_graph: %s", str(e))
+        return {"success": False, "error": str(e)}
+
+
+# Function to upload audio to Facebook's Graph API
+def upload_audio_to_graph(audio_data):
+    url = f"https://graph.facebook.com/v21.0/me/message_attachments"
+    params = {"access_token": PAGE_ACCESS_TOKEN}
+    files = {"filedata": ("audio.mp3", audio_data, "audio/mpeg")}
+    data = {"message": '{"attachment":{"type":"audio", "payload":{}}}'}
+
+    try:
+        response = requests.post(url, params=params, files=files, data=data)
+        if response.status_code == 200:
+            result = response.json()
+            return {"success": True, "attachment_id": result.get("attachment_id")}
+        else:
+            logger.error("Failed to upload audio: %s", response.json())
+            return {"success": False, "error": response.json()}
+    except Exception as e:
+        logger.error("Error in upload_audio_to_graph: %s", str(e))
         return {"success": False, "error": str(e)}
 
 
@@ -83,9 +96,8 @@ def webhook():
                         message = sliced_message[len(command_name):].strip()
                         response = messageHandler.handle_text_command(command_name, message)
 
-                        # Handle image response
                         if isinstance(response, dict) and response.get("success"):
-                            if isinstance(response["data"], BytesIO):  # Check if the response is an image
+                            if isinstance(response["data"], BytesIO):  # Handle image
                                 upload_response = upload_image_to_graph(response["data"])
                                 if upload_response.get("success"):
                                     send_message(sender_id, {"type": "image", "content": upload_response["attachment_id"]})
@@ -98,60 +110,68 @@ def webhook():
 
                     elif message_attachments:
                         try:
-                            # Extract the URL of the first attachment
                             attachment = message_attachments[0]
                             if attachment["type"] == "image":
                                 image_url = attachment["payload"]["url"]
-
-                                # Download the image data
-                                try:
-                                    image_response = requests.get(image_url)
-                                    image_response.raise_for_status()
-                                    image_data = image_response.content
-                                    # Send the image data to messageHandler
-                                    response = messageHandler.handle_attachment(image_data, attachment_type="image")
-                                    send_message(sender_id, response)
-                                except requests.exceptions.RequestException as e:
-                                    logger.error("Failed to download image: %s", str(e))
-                                    send_message(sender_id, "Failed to process the image attachment.")
+                                image_response = requests.get(image_url)
+                                image_response.raise_for_status()
+                                image_data = image_response.content
+                                response = messageHandler.handle_attachment(image_data, attachment_type="image")
+                                send_message(sender_id, response)
+                            elif attachment["type"] == "audio":
+                                audio_url = attachment["payload"]["url"]
+                                audio_response = requests.get(audio_url)
+                                audio_response.raise_for_status()
+                                audio_data = audio_response.content
+                                response = messageHandler.handle_attachment(audio_data, attachment_type="audio")
+                                send_message(sender_id, response)
                         except Exception as e:
                             logger.error("Error handling attachment: %s", str(e))
                             send_message(sender_id, "Error processing attachment.")
-
                     elif message_text:
                         response = messageHandler.handle_text_message(message_text)
                         send_message(sender_id, response)
-
                     else:
                         send_message(sender_id, "Sorry, I didn't understand that message.")
 
     return "EVENT_RECEIVED", 200
 
 
-# Send message back to Facebook
+# Function to send messages (text, image, or audio)
 def send_message(recipient_id, message=None):
     params = {"access_token": PAGE_ACCESS_TOKEN}
 
-    if isinstance(message, dict):  # Handle structured messages
-        if message["type"] == "image":
-            attachment_id = message["content"]
+    if isinstance(message, dict):
+        message_type = message.get("type")
+        content = message.get("content")
+
+        if message_type == "image":
             data = {
                 "recipient": {"id": recipient_id},
                 "message": {
                     "attachment": {
                         "type": "image",
-                        "payload": {"attachment_id": attachment_id}
+                        "payload": {"attachment_id": content}
                     }
                 },
             }
-        elif message["type"] == "text":
-            message = message["content"]
+        elif message_type == "audio":
             data = {
                 "recipient": {"id": recipient_id},
-                "message": {"text": message},
+                "message": {
+                    "attachment": {
+                        "type": "audio",
+                        "payload": {"attachment_id": content}
+                    }
+                },
+            }
+        elif message_type == "text":
+            data = {
+                "recipient": {"id": recipient_id},
+                "message": {"text": content},
             }
         else:
-            logger.error("Unsupported message type: %s", message)
+            logger.error("Unsupported message type: %s", message_type)
             return
     else:
         if not isinstance(message, str):
