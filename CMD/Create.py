@@ -1,46 +1,35 @@
 import requests
+from io import BytesIO
+
+Info = {
+    "Description": "Generate an image based on the given prompt using the custom API."
+}
 
 def execute(message):
     """
-    Generate images from the ClashAI API and return their URLs.
+    Generate an image based on the given prompt using the custom API.
 
     Args:
-        prompt (str): The user's prompt to generate images.
+        message (str): The user's prompt to generate an image.
 
     Returns:
-        dict: Contains success status and image URLs or error message.
+        dict: Contains success status and image data or error message.
     """
     try:
-        # API endpoint and headers
-        api_url = "https://api.clashai.eu/v1/images/generations"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer sk-C3eN21tQ11SZxvAqpGsm1FqAYdvdX9wreD5c6MrVBNCxrhQv"
-        }
-        # Request payload
-        data = {
-            "model": "dall-e-3",
-            "prompt": message,
-            "n": 2,  # Number of images to generate
-            "size": "256x256"
-        }
+        # Custom API endpoint
+        api_url = f"https://sandipbaruwal.onrender.com/fluxdev?prompt={message}&ratio=1:1"
 
-        # Sending POST request
-        response = requests.post(api_url, headers=headers, json=data)
+        # Sending the prompt to the API
+        response = requests.get(api_url)
 
         if response.status_code == 200:
-            result = response.json()
-            image_urls = [item['url'] for item in result['data']]
-
-            return {"success": True, "image_urls": image_urls}
+            # Get the image as bytes
+            image_data = BytesIO(response.content)
+            awaiting="🎨 Kora us generating Your Image..."
+            return {"success": True, "data": image_data,"await": awaiting}
 
         else:
-            return {"success": False, "message": f"API error: {response.status_code}"}
+            return {"success": False, "data": "🚨 Failed to generate the image. Please try again later."}
 
-    except requests.exceptions.RequestException as e:
-        return {"success": False, "message": f"Request error: {str(e)}"}
     except Exception as e:
-        return {"success": False, "message": f"Unexpected error: {str(e)}"}
-
-# Example usage
-
+        return {"success": False, "data": f"🚨 An error occurred: {str(e)}"}
