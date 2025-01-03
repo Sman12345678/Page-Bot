@@ -26,7 +26,7 @@ def execute(message=None):
     url = "https://api.clashai.eu/v1/images/generations"
     headers = {
         "Content-Type": "application/json",
-        "Authorization": "Bearer YOUR_API_KEY"
+        "Authorization": "Bearer sk-C3eN21tQ11SZxvAqpGsm1FqAYdvdX9wreD5c6MrVBNCxrhQv"
     }
     data = {
         "model": "dall-e-3",
