@@ -26,9 +26,8 @@ def execute(message=None):
     url = "https://api.clashai.eu/v1/images/generations"
     headers = {
         "Content-Type": "application/json",
-        "Authorization": "Bearer sk-C3eN21tQ11SZxvAqpGsm1FqAYdvdX9wreD5c6MrVBNCxrhQv"
+        "Authorization": "Bearer YOUR_API_KEY"
     }
-    
     data = {
         "model": "dall-e-3",
         "prompt": message,
@@ -53,7 +52,27 @@ def execute(message=None):
                             "success": False,
                             "data": {"type": "text", "content": f"🚨 Failed to fetch image from URL: {img_url}"}
                         }
-            return {"success": True, "data": image_data}
+            
+            # Once the image is generated, we can send the attachment ID (after upload) back to the user
+            # We assume the `upload_image_to_graph` function will return an attachment ID that can be sent back
+            if image_data:
+                upload_response = upload_image_to_graph(image_data[0])  # Upload the first image
+                if upload_response.get("success"):
+                    return {
+                        "success": True,
+                        "data": {"type": "image", "content": upload_response["attachment_id"]}
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "data": {"type": "text", "content": "🚨 Failed to upload the image."}
+                    }
+            else:
+                return {
+                    "success": False,
+                    "data": {"type": "text", "content": "🚨 No image generated."}
+                }
+
         else:
             return {
                 "success": False,
@@ -64,8 +83,3 @@ def execute(message=None):
             "success": False,
             "data": {"type": "text", "content": f"🚨 Request failed: {str(e)}"}
         }
-
-
-
-
-    
