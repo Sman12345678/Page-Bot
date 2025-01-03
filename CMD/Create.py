@@ -11,26 +11,38 @@ def execute(message):
     Returns:
         dict: Contains success status and message with 'type' and 'content' keys.
     """
-    # Validate message input
-    if not isinstance(message, dict) or "type" not in message or "content" not in message:
+    # Validate the message format
+    if not isinstance(message, dict):
         return {
             "success": False,
             "message": {
                 "type": "text",
-                "content": "🚨 Invalid message format. Expected a dictionary with 'type' and 'content' keys."
+                "content": "🚨 Invalid message format. Expected a dictionary."
             }
         }
 
-    if message["type"] != "text":
+    message_type = message.get("type")
+    content = message.get("content")
+
+    if not message_type or not content:
         return {
             "success": False,
             "message": {
                 "type": "text",
-                "content": "🚨 Unsupported message type. Only 'text' is supported."
+                "content": "🚨 Missing 'type' or 'content' in the message."
             }
         }
 
-    prompt = message["content"]
+    if message_type != "text":
+        return {
+            "success": False,
+            "message": {
+                "type": "text",
+                "content": f"🚨 Unsupported message type: {message_type}"
+            }
+        }
+
+    prompt = content
     api_key = "sk-C3eN21tQ11SZxvAqpGsm1FqAYdvdX9wreD5c6MrVBNCxrhQv"
     url = "https://api.clashai.eu/v1/images/generations"
     headers = {
