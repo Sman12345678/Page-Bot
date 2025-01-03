@@ -1,15 +1,14 @@
 import requests
-from io import BytesIO
 
 def execute(message):
     """
-    Generate an image from the ClashAI API, download it, and return the image.
+    Generate images from the ClashAI API and return their URLs.
 
     Args:
-        prompt (str): The user's prompt to generate the image.
+        prompt (str): The user's prompt to generate images.
 
     Returns:
-        dict: Contains success status and the downloaded image or an error message.
+        dict: Contains success status and image URLs or error message.
     """
     try:
         # API endpoint and headers
@@ -22,7 +21,7 @@ def execute(message):
         data = {
             "model": "dall-e-3",
             "prompt": message,
-            "n": 1,  # Only one image is generated
+            "n": 2,  # Number of images to generate
             "size": "256x256"
         }
 
@@ -31,16 +30,10 @@ def execute(message):
 
         if response.status_code == 200:
             result = response.json()
-            image_url = result['data'][0]['url']  # Get the first image URL
+            image_urls = [item['url'] for item in result['data']]
 
-            # Download the image
-            img_response = requests.get(image_url)
-            if img_response.status_code == 200:
-                # Return the downloaded image content as bytes
-                return {"success": True, "image": img_response.content}
-            else:
-                return {"success": False, "message": "Failed to download the image."}
-        
+            return {"success": True, "image_urls": image_urls}
+
         else:
             return {"success": False, "message": f"API error: {response.status_code}"}
 
@@ -50,3 +43,4 @@ def execute(message):
         return {"success": False, "message": f"Unexpected error: {str(e)}"}
 
 # Example usage
+
