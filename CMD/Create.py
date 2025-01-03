@@ -1,37 +1,26 @@
 import requests
 from io import BytesIO
 
-def execute(message=None):
+def execute(message):
     """
-    Generate images using the ClashAI DALL-E-3 API.
+    Generate an image based on the given prompt using ClashAI's DALL-E-3 API.
 
     Args:
-        message (str): The prompt for image generation.
+        message (str): The prompt to generate an image.
 
     Returns:
-        dict: A dictionary containing success status and either the images or an error message.
+        dict: Contains success status and either the image data or an error message.
     """
-    if not message:
-        return {
-            "success": False,
-            "data": {"type": "text", "content": "🚨 No prompt provided. Please provide a valid prompt for image generation."}
-        }
-
-    # Inform the user that the image is being generated
-    awaiting_message = {
-        "success": True,
-        "data": {"type": "text", "content": "⏳ Generating your image, please wait..."}
-    }
-
+    api_key = "sk-C3eN21tQ11SZxvAqpGsm1FqAYdvdX9wreD5c6MrVBNCxrhQv"
     url = "https://api.clashai.eu/v1/images/generations"
     headers = {
         "Content-Type": "application/json",
-        "Authorization": "Bearer sk-C3eN21tQ11SZxvAqpGsm1FqAYdvdX9wreD5c6MrVBNCxrhQv"
+        "Authorization": f"Bearer {api_key}"
     }
     data = {
         "model": "dall-e-3",
         "prompt": message,
-        "n": 1,  # Generate 1 image for now
+        "n": 1,
         "size": "256x256"
     }
 
@@ -39,47 +28,17 @@ def execute(message=None):
         response = requests.post(url, headers=headers, json=data)
         if response.status_code == 200:
             result = response.json()
-            image_data = []
-            for img_data in result.get('data', []):
-                img_url = img_data.get('url')
-                if img_url:
-                    img_response = requests.get(img_url)
-                    if img_response.status_code == 200:
-                        img = BytesIO(img_response.content)
-                        image_data.append(img)
+            if "data" in result and result["data"]:
+                image_url = result["data"][0].get("url")
+                if image_url:
+                    image_response = requests.get(image_url)
+                    if image_response.status_code == 200:
+                        return {"success": True, "data": BytesIO(image_response.content)}
                     else:
-                        return {
-                            "success": False,
-                            "data": {"type": "text", "content": f"🚨 Failed to fetch image from URL: {img_url}"}
-                        }
-            
-            # Once the image is generated, we can send the attachment ID (after upload) back to the user
-            # We assume the `upload_image_to_graph` function will return an attachment ID that can be sent back
-            if image_data:
-                upload_response = upload_image_to_graph(image_data[0])  # Upload the first image
-                if upload_response.get("success"):
-                    return {
-                        "success": True,
-                        "data": {"type": "image", "content": upload_response["attachment_id"]}
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "data": {"type": "text", "content": "🚨 Failed to upload the image."}
-                    }
+                        return {"success": False, "error": f"Failed to fetch the image from URL: {image_url}"}
             else:
-                return {
-                    "success": False,
-                    "data": {"type": "text", "content": "🚨 No image generated."}
-                }
-
+                return {"success": False, "error": "No image data received from the API."}
         else:
-            return {
-                "success": False,
-                "data": {"type": "text", "content": f"🚨 Error from API. Status code: {response.status_code}, Response: {response.text}"}
-            }
-    except requests.exceptions.RequestException as e:
-        return {
-            "success": False,
-            "data": {"type": "text", "content": f"🚨 Request failed: {str(e)}"}
-        }
+            return {"success": False, "error": f"API returned an error: {response.status_code}, {response.text}"}
+    except Exception as e:
+        return {"success": False, "error": f"An exception occurred: {str(e)}"}
