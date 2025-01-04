@@ -25,9 +25,8 @@ def execute(message):
         if response.status_code == 200:
             # Get the image as bytes
             image_data = BytesIO(response.content)
-            awaiting="🎨 Kora us generating Your Image..."
-            return awaiting 
-            return {"success": True, "data": image_data}
+            awaiting="🎨 Kora is generating Your Image..."
+            return {"awaiting":awaiting,"success": True, "data": image_data}
 
         else:
             return {"success": False, "data": "🚨 Failed to generate the image. Please try again later."}
