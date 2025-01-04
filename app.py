@@ -172,7 +172,7 @@ def send_message(recipient_id, message=None):
             }
         else:
             logger.error("Unsupported message type: %s", message_type)
-            return
+            return f"❌ An Error Occurred..."
     else:
         if not isinstance(message, str):
             logger.error("Message content is not a string: %s", message)
