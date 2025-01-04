@@ -26,7 +26,8 @@ def execute(message):
             # Get the image as bytes
             image_data = BytesIO(response.content)
             awaiting="🎨 Kora us generating Your Image..."
-            return {"success": True, "data": image_data,"await": awaiting}
+            return awaiting 
+            return {"success": True, "data": image_data}
 
         else:
             return {"success": False, "data": "🚨 Failed to generate the image. Please try again later."}
