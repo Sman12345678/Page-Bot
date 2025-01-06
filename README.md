@@ -23,7 +23,7 @@ This project details a Facebook chatbot built to provide customer support,  answ
 
 1.  Clone the repository:  `git clone [https://github.com/Sman12345678/Page-Bot]`
 2.  Install dependencies: `pip install -r requirements.txt`
-3.  Provided API key for: <a href="ai.google.dev">Google generativeai</a>,<a href="im.ge">IMGE</a>
+3.  Provided API key for: <a href="https://ai.google.dev">Google generativeai</a>,<a href="https://im.ge">IMGE</a>
 5.  Run the chatbot: `python app.py`
 # Contribution 
 
