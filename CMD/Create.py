@@ -1,35 +1,41 @@
 import requests
 from io import BytesIO
-
-Info = {
-    "Description": "Generate an image based on the given prompt using the custom API."
-}
+import time
 
 def execute(message):
-    """
-    Generate an image based on the given prompt using the custom API.
-
-    Args:
-        message (str): The user's prompt to generate an image.
-
-    Returns:
-        dict: Contains success status and image data or error message.
-    """
     try:
-        # Custom API endpoint
-        api_url = f"https://sandipbaruwal.onrender.com/fluxdev?prompt={message}&ratio=1:1"
+        # Return awaiting message
+        yield {"success": True, "message": "🎨 Generating image..."}
 
-        # Sending the prompt to the API
+        # API endpoint
+        api_url = f"(https://mahi-apis.onrender.com/api/fluxpro?prompt={message})"
+
+        # Sending GET request
         response = requests.get(api_url)
 
         if response.status_code == 200:
-            # Get the image as bytes
-            image_data = BytesIO(response.content)
-            awaiting="🎨 Kora us generating Your Image..."
-            return {"success": True, "data": image_data,"await": awaiting}
+            result = response.json()
 
+            # Simulate processing time
+            time.sleep(5)
+
+            # Download each image as bytes
+            images = []
+            for item in result['data']:
+                img_url = item['imageUrl']
+                img_response = requests.get(img_url)
+
+                if img_response.status_code == 200:
+                    images.append(BytesIO(img_response.content))
+                else:
+                    return {"success": False, "message": f"Failed to download image from {img_url}"}
+
+            return {"success": True, "images": images}
         else:
-            return {"success": False, "data": "🚨 Failed to generate the image. Please try again later."}
+            return {"success": False, "message": f"API error: {response.status_code}"}
+
+    except requests.exceptions.RequestException as e:
+        return {"success": False, "message": f"Request error: {str(e)}"}
 
     except Exception as e:
-        return {"success": False, "data": f"🚨 An error occurred: {str(e)}"}
+        return {"success": False, "message": f"Unexpected error: {str(e)}"}
