@@ -1,12 +1,12 @@
 import requests
 from io import BytesIO
 import time
+Info={
+    "Description":"Generate image based on prompt"
+}
 
 def execute(message):
     try:
-        # Return awaiting message
-        yield {"success": True, "message": "🎨 Generating image..."}
-
         # API endpoint
         api_url = f"(https://mahi-apis.onrender.com/api/fluxpro?prompt={message})"
 
@@ -39,3 +39,5 @@ def execute(message):
 
     except Exception as e:
         return {"success": False, "message": f"Unexpected error: {str(e)}"}
+
+# Running the function
