@@ -17,7 +17,7 @@ def execute(message):
     """
     try:
         # Custom API endpoint
-        api_url = f"https://upol-meaw-newapi.onrender.com/flux/v2?prompt={message}"
+        api_url = f"https://upol-ai-docs.onrender.com/imagine?prompt={message}&apikey=UPoLxyzFM-69vsg"
 
         # Sending the prompt to the API
         response = requests.get(api_url)
