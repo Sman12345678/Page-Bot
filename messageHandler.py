@@ -36,8 +36,8 @@ Things you can do = {
 *analyse image*:*You can analyse, interpret, explain images*.
 *send mail*:*You can Send email messages using "/mail recipient_email, Message title, message body" which is part of your command.
 }
-Today date is:{time_now}
-"""
+Today date is:{}
+""".format(time_now)
 
 # Image analysis prompt
 IMAGE_ANALYSIS_PROMPT = """Analyize the image keenly and explain it's content,if it's a text translate it and say the language used"""
