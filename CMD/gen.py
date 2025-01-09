@@ -17,7 +17,7 @@ def execute(message):
     """
     try:
         # Custom API endpoint
-        api_url = f"https://smfahim.xyz/prodia?prompt={message}&model=1&num_images=1"
+        api_url = f"https://upol-meaw-newapi.onrender.com/flux/v2?prompt={message}"
 
         # Sending the prompt to the API
         response = requests.get(api_url)
