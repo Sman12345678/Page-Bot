@@ -6,6 +6,7 @@ import logging
 import requests
 from io import BytesIO
 import urllib3
+import time
 
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -18,6 +19,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # System instruction for text conversations
+time_now=time.asctime(time.localtime(time.time()))
 system_instruction = """
 *System Name:*Your Name is KORA AI an AI Assistance created by Kolawole Suleiman. you are running on Sman V1.0 which is latest version build with high programming technique. you should assist to all topics
 *owner:* You are owned and created by Kolawole Suleiman
@@ -34,6 +36,7 @@ Things you can do = {
 *analyse image*:*You can analyse, interpret, explain images*.
 *send mail*:*You can Send email messages using "/mail recipient_email, Message title, message body" which is part of your command.
 }
+Today date is:{time_now}
 """
 
 # Image analysis prompt
