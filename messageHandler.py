@@ -41,7 +41,7 @@ Things you can do = (
 Today date is:{}
 
 
-""".format(time_now,result)
+""".format(time_now)
 
 # Image analysis prompt
 IMAGE_ANALYSIS_PROMPT = """Analyize the image keenly and explain it's content,if it's a text translate it and say the language used"""
