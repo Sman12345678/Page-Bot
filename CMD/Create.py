@@ -1,11 +1,7 @@
 import requests
 from io import BytesIO
+from bs4 import BeautifulSoup  # Ensure BeautifulSoup is imported
 import logging
-from bs4 import BeautifulSoup
-
-Info = {
-    "Description": "Search For Images From Online Source"
-}
 
 # Configure logging
 logging.basicConfig(
@@ -16,13 +12,13 @@ logging.basicConfig(
 
 def execute(message):
     """
-    Scrapes images from Bing based on the search term (message) and returns the first 5 images as raw bytes.
+    Scrapes images from Bing based on the search term (message) and returns the first 5 images as BytesIO objects.
     
     :param message: Search term to fetch images.
-    :return: List of dictionaries containing success status and image bytes or error message.
+    :return: List of dictionaries containing success status and image data or error message.
     """
     if not message:
-        return [{"success": False, "data": "❌ Please provide a search query after that command."}]
+        return [{"success": False, "data": "❌ Please Provide a Search Term After That Command "}]
 
     url = f"https://www.bing.com/images/search?q={message}"
     logging.info(f"Fetching URL: {url}")
@@ -54,12 +50,12 @@ def execute(message):
             # Fetch the image
             img_response = requests.get(src)
             img_response.raise_for_status()
-            image_data = img_response.content  # Get the image as raw bytes
+            image_data = BytesIO(img_response.content)  # Get the image data as bytes
             images.append({"success": True, "data": image_data})
             logging.info(f"Image {i + 1} fetched successfully from: {src}")
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to fetch image {i + 1} from {src}: {e}")
             images.append({"success": False, "data": f"🚨 Failed to fetch image {i + 1} from {src}: {str(e)}"})
     
-    logging.info(f"Total images fetched successfully: {len([img for img in images if img['success']])} out of 5")
+    logging.info(f"Total images fetched: {len(images)}")
     return images
