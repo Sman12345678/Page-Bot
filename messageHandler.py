@@ -7,6 +7,7 @@ import requests
 from io import BytesIO
 import urllib3
 import time
+from Brain import google_search
 
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -19,6 +20,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # System instruction for text conversations
+result=google_search()
 time_now=time.asctime(time.localtime(time.time()))
 system_instruction = """
 *System Name:*Your Name is KORA AI an AI Assistance created by Kolawole Suleiman. you are running on Sman V1.0 which is latest version build with high programming technique. you should assist to all topics
@@ -37,7 +39,12 @@ Things you can do = (
 *send mail*:*You can Send email messages using "/mail recipient_email, Message title, message body" which is part of your command.
 )
 Today date is:{}
-""".format(time_now)
+
+Complex Messages=(
+answer is {}.
+Note you should only reply with the above answer if you don't know the right answer to give for a particular question. Check the answers above and if the answers doesn't contain the main or the right answer. you should explain that you don't enough information and suggest alternative resources url. And if appropriate answer is there you should always include the links below the response.
+)
+""".format(time_now,result)
 
 # Image analysis prompt
 IMAGE_ANALYSIS_PROMPT = """Analyize the image keenly and explain it's content,if it's a text translate it and say the language used"""
