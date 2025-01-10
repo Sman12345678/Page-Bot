@@ -1,5 +1,4 @@
 import requests
-from bs4 import BeautifulSoup
 from io import BytesIO
 import logging
 
@@ -12,11 +11,14 @@ logging.basicConfig(
 
 def execute(message):
     """
-    Scrapes images from Bing based on the search term (message) and returns a list of BytesIO objects.
+    Scrapes images from Bing based on the search term (message) and returns the first 5 images as BytesIO objects.
     
     :param message: Search term to fetch images.
-    :return: List of BytesIO objects containing image data.
+    :return: List of dictionaries containing success status and image data or error message.
     """
+    if not message:
+        return [{"success": False, "data": "❌ Please Provide a Search Term After That Command "}]
+
     url = f"https://www.bing.com/images/search?q={message}"
     logging.info(f"Fetching URL: {url}")
     
@@ -27,17 +29,17 @@ def execute(message):
         logging.info(f"Successfully fetched the webpage for search term: {message}")
     except requests.exceptions.RequestException as e:
         logging.error(f"Failed to fetch webpage: {e}")
-        return []
+        return [{"success": False, "data": f"🚨 Failed to fetch webpage: {str(e)}"}]
     
     # Parse the webpage content
     soup = BeautifulSoup(response.content, 'html.parser')
     image_tags = soup.find_all('img', class_=['mimg', 'rms_img', 'vimgld'])
     if not image_tags:
         logging.warning(f"No images found for search term: {message}")
-        return []
+        return [{"success": False, "data": "🚨 No images found for the search term."}]
     
     images = []
-    for i, img_tag in enumerate(image_tags):
+    for i, img_tag in enumerate(image_tags[:5]):  # Limit to the first 5 images
         src = img_tag.get('src')
         if not src:
             logging.warning(f"Image tag {i + 1} has no 'src' attribute.")
@@ -47,10 +49,12 @@ def execute(message):
             # Fetch the image
             img_response = requests.get(src)
             img_response.raise_for_status()
-            images.append(BytesIO(img_response.content))
+            image_data = BytesIO(img_response.content)  # Get the image as bytes
+            images.append({"success": True, "data": image_data})
             logging.info(f"Image {i + 1} fetched successfully from: {src}")
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to fetch image {i + 1} from {src}: {e}")
+            images.append({"success": False, "data": f"🚨 Failed to fetch image {i + 1} from {src}: {str(e)}"})
     
     logging.info(f"Total images fetched: {len(images)}")
     return images
