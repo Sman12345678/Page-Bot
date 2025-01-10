@@ -40,7 +40,7 @@ def execute(message):
         return [{"success": False, "data": "🚨 No images found for the search term."}]
     
     images = []
-    for i, img_tag in enumerate(image_tags[9:14]):  # Limit to the first 5 images
+    for i, img_tag in enumerate(image_tags[9:10]):  # Limit to the first 5 images
         src = img_tag.get('src')
         if not src:
             logging.warning(f"Image tag {i + 1} has no 'src' attribute.")
