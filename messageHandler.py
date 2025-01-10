@@ -14,14 +14,13 @@ from Brain import google_search  # Import the function you want to call
 # Define the function that will run google_search with the app context
 def run_google_search():
     with app.app_context():  # Set up the Flask application context
-        # No need to set g.message_text here since it should already be set in app.py
         result = google_search()  # Will rely on `g.message_text` set in app.py
-        
+        return f"{result}"
 
 # Ensure the script runs when executed
 if __name__ == "__main__":
-    run_google_search()  # Call the function
-
+    Answer = run_google_search()  # Call the function to get the result
+ # Print or use the formatted system instruction
 
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -58,7 +57,7 @@ Complex Messages=(
 answer is {}.
 Note you should only reply with the above answer if you don't know the right answer to give for a particular question. Check the answers above and if the answers doesn't contain the main or the right answer. you should explain that you don't enough information and suggest alternative resources url. And if appropriate answer is there you should always include the links below the response.
 )
-""".format(time_now,result)
+""".format(time_now,Answer)
 
 # Image analysis prompt
 IMAGE_ANALYSIS_PROMPT = """Analyize the image keenly and explain it's content,if it's a text translate it and say the language used"""
