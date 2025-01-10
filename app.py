@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify,g
 from dotenv import load_dotenv
 from flask_cors import CORS
 import requests
@@ -86,6 +86,7 @@ def webhook():
                 if "message" in event:
                     sender_id = event["sender"]["id"]
                     message_text = event["message"].get("text")
+                    g.message_text=message_text
                     message_attachments = event["message"].get("attachments")
                     message_command = event["message"].get("text")
 
