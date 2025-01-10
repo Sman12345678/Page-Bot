@@ -1,3 +1,4 @@
+'''This cmd is created for testing purposes please don't steal or Abuse Email and Password '''
 import smtplib
 import os
 import re
@@ -30,7 +31,7 @@ def execute(message):
     """
     # Check if no message is provided
     if not message:
-        return {"success": False, "data": "🚨 No message provided. Format: 'Recipient_email, Title, Message'"}
+        return [{"success": False, "data": "🚨 No message provided. Format: 'Recipient_email, Title, Message'"}]
 
     # SMTP Server Configuration
     SMTP_SERVER = "smtp.gmail.com"  # Replace with your SMTP server
