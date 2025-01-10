@@ -15,7 +15,7 @@ def execute(message):
     """
 
     if not message:
-        return [{"error": "No message text available"}]
+        return [{"error": "❌ You Didn't Include A Search Query"}]
 
     api_key = "AIzaSyAqBaaYWktE14aDwDE8prVIbCH88zni12E"  # Your API key
     cx = "7514b16a62add47ae"  # Your Custom Search Engine ID
@@ -34,6 +34,6 @@ def execute(message):
         link = item.get('link', 'No link')
         description = item.get('snippet', 'No description')
         
-        results.append({"title": title, "link": link, "description": description})
+        results.append({"⚒️Title": title, "📎Link": link, "📋Description": description})
     
     return results
