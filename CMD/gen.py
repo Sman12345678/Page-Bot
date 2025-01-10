@@ -16,7 +16,7 @@ def execute(message):
         dict: Contains success status and image data or error message.
     """
     if not message:
-        return {"success": False, "data": "❌ Please Provide a Prompt After That Command "}
+        return [{"success": False, "data": "❌ Please Provide a Prompt After That Command "}]
 
     try:
         # Custom API endpoint
