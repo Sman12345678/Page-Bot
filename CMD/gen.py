@@ -15,6 +15,9 @@ def execute(message):
     Returns:
         dict: Contains success status and image data or error message.
     """
+    if not message:
+        return {"success": False, "data": "❌ Please Provide a Prompt After That Command "}
+
     try:
         # Custom API endpoint
         api_url = f"https://upol-ai-docs.onrender.com/imagine?prompt={message}&apikey=UPoLxyzFM-69vsg"
