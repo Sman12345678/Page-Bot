@@ -7,7 +7,21 @@ import requests
 from io import BytesIO
 import urllib3
 import time
-from Brain import google_search
+# Import the necessary modules
+from app import app  # Import the Flask app instance
+from Brain import google_search  # Import the function you want to call
+
+# Define the function that will run google_search with the app context
+def run_google_search():
+    with app.app_context():  # Set up the Flask application context
+        # No need to set g.message_text here since it should already be set in app.py
+        result = google_search()  # Will rely on `g.message_text` set in app.py
+        
+
+# Ensure the script runs when executed
+if __name__ == "__main__":
+    run_google_search()  # Call the function
+
 
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -20,7 +34,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # System instruction for text conversations
-result=google_search()
+
 time_now=time.asctime(time.localtime(time.time()))
 system_instruction = """
 *System Name:*Your Name is KORA AI an AI Assistance created by Kolawole Suleiman. you are running on Sman V1.0 which is latest version build with high programming technique. you should assist to all topics
