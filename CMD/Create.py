@@ -1,12 +1,12 @@
+
 import requests
 from io import BytesIO
-from PIL import Image  # Import Image from PIL
 import logging
 from bs4 import BeautifulSoup
+
 Info={
     "Description":"Search For Images From Online Source"
 }
-
 # Configure logging
 logging.basicConfig(
     filename="image_scraper.log",
@@ -44,7 +44,7 @@ def execute(message):
         return [{"success": False, "data": "🚨 No images found for the search term."}]
     
     images = []
-    for i, img_tag in enumerate(image_tags[9:15]):  # Limit to the first 5 images
+    for i, img_tag in enumerate(image_tags[5:10]):  # Limit to the first 5 images
         src = img_tag.get('src')
         if not src:
             logging.warning(f"Image tag {i + 1} has no 'src' attribute.")
@@ -54,10 +54,7 @@ def execute(message):
             # Fetch the image
             img_response = requests.get(src)
             img_response.raise_for_status()
-            image = Image.open(BytesIO(img_response.content))  # Open the image using PIL
-            image_data = BytesIO()
-            image.save(image_data, format='PNG')  # Save the image to a BytesIO object
-            image_data.seek(0)
+            image_data = BytesIO(img_response.content)  # Get the image as bytes
             images.append({"success": True, "data": image_data})
             logging.info(f"Image {i + 1} fetched successfully from: {src}")
         except requests.exceptions.RequestException as e:
