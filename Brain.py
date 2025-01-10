@@ -1,10 +1,11 @@
-'''This File Is Created For The Purpose Of Making Bot Wiser Please Dont Misuse of Abuse Api key'''
+# Brain.py This File is Designed For The Purpose Of Making Bot Wiser Please Do Not Misuse or Abuse API Key
 import requests
-import app  # Importing app to access message_text
+from flask import g  
 
 def google_search(num_results=5):
     """
-    Perform a Google search using the message_text from app and return the top results using Google Custom Search API.
+    Perform a Google search using the message_text from Flask's g object 
+    and return the top results using Google Custom Search API.
 
     Args:
         num_results (int): Number of results to fetch.
@@ -12,7 +13,11 @@ def google_search(num_results=5):
     Returns:
         list: A list of dictionaries containing 'title', 'link', and 'description'.
     """
-    query = app.message_text # Dynamically fetch the query from app
+    
+    query = getattr(g, 'message_text', '')  
+
+    if not query:
+        return [{"error": "No message text available"}]
 
     api_key = "AIzaSyAqBaaYWktE14aDwDE8prVIbCH88zni12E"  # Your API key
     cx = "7514b16a62add47ae"  # Your Custom Search Engine ID
