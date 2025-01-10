@@ -17,7 +17,7 @@ def execute(message):
     :return: List of dictionaries containing success status and image data or error message.
     """
     if not message:
-        return [{"success": False, "data": "❌ Please Provide a Search Term After That Command "}]
+        return [{"success": False, "data": "❌ Please Provide a Search Query After That Command "}]
 
     url = f"https://www.bing.com/images/search?q={message}"
     logging.info(f"Fetching URL: {url}")
