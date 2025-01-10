@@ -1,7 +1,7 @@
 import requests
 from io import BytesIO
 import logging
-from bs4 import Beautifulsoup
+from bs4 import BeautifulSoup
 # Configure logging
 logging.basicConfig(
     filename="image_scraper.log",
