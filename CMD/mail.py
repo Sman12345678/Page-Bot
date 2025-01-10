@@ -18,7 +18,7 @@ def is_valid_email(email):
     regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
     return re.match(regex, email)
 
-def execute(message=None):
+def execute(message):
     """
     Send an email using SMTP based on the provided message.
 
@@ -30,7 +30,7 @@ def execute(message=None):
     """
     # Check if no message is provided
     if not message:
-        return {"success": False, "data": "🚨 No message provided. Format: 'recipient_email, subject, body'"}
+        return {"success": False, "data": "🚨 No message provided. Format: 'Recipient_email, Title, Message'"}
 
     # SMTP Server Configuration
     SMTP_SERVER = "smtp.gmail.com"  # Replace with your SMTP server
