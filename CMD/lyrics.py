@@ -54,7 +54,7 @@ def display_song(data):
     song_details = (
         f"\n{'➖' * 5}\n"
         f"🎵 Title: {data['title']}\n"
-        f"🎤 Artist: {data['artist']}\n"
+        f"🎤 Artist: KORA AI\n"
         f"{'➖' * 20}\n\n"
         f"📋 Lyrics:\n\n{data['lyrics']}\n"
         f"{'➖' * 5}"
