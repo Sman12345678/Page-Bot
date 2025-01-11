@@ -1,6 +1,8 @@
 import requests
-Info={
-    "Description":"Provide Lyrics For The Song Given"
+from io import BytesIO
+
+Info = {
+    "Description": "Provide Lyrics For The Song Given"
 }
 
 def fetch_lyrics(song):
@@ -11,7 +13,7 @@ def fetch_lyrics(song):
     :return: A dictionary containing song details or an error message.
     """
     if not song:
-        return [{"success": False, "error": "❌ Please provide a song name."}]
+        return {"success": False, "error": "❌ Please provide a song name."}
     
     url = f"https://kaiz-apis.gleeze.com/api/lyrics?song={song}"
     
@@ -21,12 +23,26 @@ def fetch_lyrics(song):
         data = response.json()
         
         if "lyrics" in data:
-            return [{"success": True, "data": data}]
+            return {"success": True, "data": data}
         else:
-            return [{"success": False, "error": "🚨 No lyrics found for the provided song."}]
+            return {"success": False, "error": "🚨 No lyrics found for the provided song."}
     
     except requests.exceptions.RequestException as e:
-        return [{"success": False, "error": f"🚨 Error fetching lyrics: {str(e)}"}]
+        return {"success": False, "error": f"🚨 Error fetching lyrics: {str(e)}"}
+
+def get_image_bytes(image_url):
+    """
+    Fetches the image as bytes.
+    
+    :param image_url: URL of the image to fetch.
+    :return: The image as BytesIO object or an error message.
+    """
+    try:
+        response = requests.get(image_url)
+        response.raise_for_status()
+        return BytesIO(response.content)  # Return image as BytesIO
+    except requests.exceptions.RequestException as e:
+        return f"🚨 Failed to fetch image: {str(e)}"
 
 def display_song(data):
     """
@@ -35,28 +51,30 @@ def display_song(data):
     :param data: A dictionary containing song details.
     :return: A formatted string with the song's details.
     """
-    # Create formatted song details
     song_details = (
-        f"\n{'➖' * 5}\n"
+        f"\n{'➖' * 20}\n"
         f"🎵 Title: {data['title']}\n"
         f"🎤 Artist: {data['artist']}\n"
-        f"{'➖' * 5}\n\n"
+        f"{'➖' * 20}\n\n"
         f"📋 Lyrics:\n\n{data['lyrics']}\n"
-        f"{'➖' * 5}"
+        f"{'➖' * 20}"
     )
-    
     return song_details
 
-def execute(message):
+def execute(song_name):
     """
-    Main function to fetch and display song details.
+    Main function to fetch and display song details, including the album cover image.
     
     :param song_name: The name of the song to search for.
-    :return: A formatted string with song details or an error message.
+    :return: A tuple containing the image as BytesIO and a formatted string with song details.
     """
-    result = fetch_lyrics(message)
+    result = fetch_lyrics(song_name)
     if result["success"]:
-        return display_song(result["data"])
+        data = result["data"]
+        image_bytes = get_image_bytes(data["image"])
+        song_details = display_song(data)
+        return image_bytes, song_details
     else:
-        return result["error"]
+        return None, result["error"]
 
+# Example usage
