@@ -2,6 +2,10 @@ import requests
 from io import BytesIO
 from bs4 import BeautifulSoup  # Ensure BeautifulSoup is imported
 import logging
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
