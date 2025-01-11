@@ -18,7 +18,7 @@ def execute(message):
     :param search_term: Search term to fetch images.
     :return: List of dictionaries containing success status and image data or error message.
     """
-    if not search_term.strip():
+    if not message.strip():
         return [{"success": False, "data": "❌ Please provide a valid search term."}]
 
     url = f"https://www.bing.com/images/search?q={message}"
