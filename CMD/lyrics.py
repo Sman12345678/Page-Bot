@@ -15,7 +15,7 @@ def fetch_lyrics(song):
     if not song:
         return {"success": False, "error": "❌ Please provide a song name."}
     
-    url = f"https://kaiz-apis.gleeze.com/api/lyrics?song={song}"
+    url = f"https://kaiz-apis.gleeze.com/api/lyrics?title={song}"
     
     try:
         response = requests.get(url)
@@ -52,12 +52,12 @@ def display_song(data):
     :return: A formatted string with the song's details.
     """
     song_details = (
-        f"\n{'➖' * 20}\n"
+        f"\n{'➖' * 5}\n"
         f"🎵 Title: {data['title']}\n"
         f"🎤 Artist: {data['artist']}\n"
         f"{'➖' * 20}\n\n"
         f"📋 Lyrics:\n\n{data['lyrics']}\n"
-        f"{'➖' * 20}"
+        f"{'➖' * 5}"
     )
     return song_details
 
@@ -71,7 +71,7 @@ def execute(song_name):
     result = fetch_lyrics(song_name)
     if result["success"]:
         data = result["data"]
-        image_bytes = get_image_bytes(data["image"])
+        image_bytes = get_image_bytes(data["thumbnail"])
         song_details = display_song(data)
         return image_bytes, song_details
     else:
