@@ -16,7 +16,7 @@ def fetch_lyrics(song):
     if not song:
         return {"success": False, "error": "❌ Please provide a song name."}
     
-    url = f"https://kaiz-apis.gleeze.com/api/lyrics?song={song}"
+    url = f"https://kaiz-apis.gleeze.com/api/lyrics?title={song}"
     
     try:
         response = requests.get(url)
