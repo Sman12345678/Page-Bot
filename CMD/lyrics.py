@@ -1,5 +1,6 @@
 import requests
 from io import BytesIO
+import time
 
 Info = {
     "Description": "Provide Lyrics For The Song Given"
@@ -15,7 +16,7 @@ def fetch_lyrics(song):
     if not song:
         return {"success": False, "error": "❌ Please provide a song name."}
     
-    url = f"https://kaiz-apis.gleeze.com/api/lyrics?title={song}"
+    url = f"https://kaiz-apis.gleeze.com/api/lyrics?song={song}"
     
     try:
         response = requests.get(url)
@@ -44,37 +45,48 @@ def get_image_bytes(image_url):
     except requests.exceptions.RequestException as e:
         return f"🚨 Failed to fetch image: {str(e)}"
 
+def split_lyrics(lyrics):
+    """
+    Splits the lyrics into three parts.
+    
+    :param lyrics: The complete lyrics string.
+    :return: A list containing three parts of the lyrics.
+    """
+    lines = lyrics.split('\n')
+    part_size = len(lines) // 3
+    return ['\n'.join(lines[i:i + part_size]) for i in range(0, len(lines), part_size)]
+
 def display_song(data):
     """
     Returns the song's details in a formatted string.
     
     :param data: A dictionary containing song details.
-    :return: A formatted string with the song's details.
+    :return: A list of formatted strings with the song's details.
     """
-    song_details = (
+    lyrics_parts = split_lyrics(data['lyrics'])
+    song_details = [
         f"\n{'➖' * 5}\n"
         f"🎵 Title: {data['title']}\n"
         f"🎤 Artist: KORA AI\n"
-        f"{'➖' * 20}\n\n"
-        f"📋 Lyrics:\n\n{data['lyrics']}\n"
-        f"{'➖' * 5}"
-    )
+        f"{'➖' * 5}\n\n"
+        f"📋 Lyrics (Part {i+1}):\n\n{part}\n"
+        f"{'➖' * 5}" for i, part in enumerate(lyrics_parts)
+    ]
     return song_details
 
-def execute(song_name):
+def execute(message):
     """
     Main function to fetch and display song details, including the album cover image.
     
     :param song_name: The name of the song to search for.
-    :return: A tuple containing the image as BytesIO and a formatted string with song details.
+    :return: A tuple containing the image as BytesIO and a list of formatted strings with song details.
     """
-    result = fetch_lyrics(song_name)
+    result = fetch_lyrics(message)
     if result["success"]:
         data = result["data"]
-        image_bytes = get_image_bytes(data["thumbnail"])
+        image_bytes = get_image_bytes(data["image"])
         song_details = display_song(data)
         return image_bytes, song_details
     else:
         return None, result["error"]
 
-# Example usage
