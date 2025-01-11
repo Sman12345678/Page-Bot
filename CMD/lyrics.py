@@ -1,6 +1,7 @@
 import requests
-from io import BytesIO
-from PIL import Image
+Info={
+    "Description":"Provide Lyrics For The Song Given"
+}
 
 def fetch_lyrics(song):
     """
@@ -10,7 +11,7 @@ def fetch_lyrics(song):
     :return: A dictionary containing song details or an error message.
     """
     if not song:
-        return {"success": False, "error": "❌ Please provide a song name."}
+        return [{"success": False, "error": "❌ Please provide a song name."}]
     
     url = f"https://kaiz-apis.gleeze.com/api/lyrics?song={song}"
     
@@ -20,36 +21,28 @@ def fetch_lyrics(song):
         data = response.json()
         
         if "lyrics" in data:
-            return {"success": True, "data": data}
+            return [{"success": True, "data": data}]
         else:
             return [{"success": False, "error": "🚨 No lyrics found for the provided song."}]
     
     except requests.exceptions.RequestException as e:
         return [{"success": False, "error": f"🚨 Error fetching lyrics: {str(e)}"}]
 
-def display_song(data, show_image=True):
+def display_song(data):
     """
-    Returns the song's details in a formatted string and optionally displays the image.
+    Returns the song's details in a formatted string.
     
     :param data: A dictionary containing song details.
-    :param show_image: Boolean flag to indicate whether to display the image.
     :return: A formatted string with the song's details.
     """
-    # Optionally display the image
-    if show_image:
-        image_url = data["image"]
-        response = requests.get(image_url)
-        image = Image.open(BytesIO(response.content))
-        image.show(title=f"{data['title']} - {data['artist']}")
-    
     # Create formatted song details
     song_details = (
-        f"\n{'=' * 50}\n"
+        f"\n{'➖' * 5}\n"
         f"🎵 Title: {data['title']}\n"
         f"🎤 Artist: {data['artist']}\n"
-        f"{'=' * 50}\n\n"
-        f"Lyrics:\n\n{data['lyrics']}\n"
-        f"{'=' * 50}"
+        f"{'➖' * 5}\n\n"
+        f"📋 Lyrics:\n\n{data['lyrics']}\n"
+        f"{'➖' * 5}"
     )
     
     return song_details
@@ -66,3 +59,4 @@ def execute(message):
         return display_song(result["data"])
     else:
         return result["error"]
+
