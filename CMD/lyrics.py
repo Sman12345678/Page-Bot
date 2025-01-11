@@ -6,11 +6,11 @@ def fetch_lyrics(song):
     """
     Fetches song details (lyrics, title, artist, and image) from the API.
     
-    :param message: The song name to search for.
+    :param song: The song name to search for.
     :return: A dictionary containing song details or an error message.
     """
     if not song:
-        return [{"success": False, "error": "❌ Please provide a song name."}]
+        return {"success": False, "error": "❌ Please provide a song name."}
     
     url = f"https://kaiz-apis.gleeze.com/api/lyrics?song={song}"
     
@@ -27,23 +27,25 @@ def fetch_lyrics(song):
     except requests.exceptions.RequestException as e:
         return [{"success": False, "error": f"🚨 Error fetching lyrics: {str(e)}"}]
 
-def display_song(data):
+def display_song(data, show_image=True):
     """
-    Returns the song's details in a formatted string and displays the image.
+    Returns the song's details in a formatted string and optionally displays the image.
     
     :param data: A dictionary containing song details.
+    :param show_image: Boolean flag to indicate whether to display the image.
     :return: A formatted string with the song's details.
     """
-    # Display the image
-    image_url = data["image"]
-    response = requests.get(image_url)
-    image = Image.open(BytesIO(response.content))
-    image.show(title=f"{data['tittle']} - {data['artist']}")
+    # Optionally display the image
+    if show_image:
+        image_url = data["image"]
+        response = requests.get(image_url)
+        image = Image.open(BytesIO(response.content))
+        image.show(title=f"{data['title']} - {data['artist']}")
     
     # Create formatted song details
     song_details = (
         f"\n{'=' * 50}\n"
-        f"🎵 Title: {data['tittle']}\n"
+        f"🎵 Title: {data['title']}\n"
         f"🎤 Artist: {data['artist']}\n"
         f"{'=' * 50}\n\n"
         f"Lyrics:\n\n{data['lyrics']}\n"
