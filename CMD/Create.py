@@ -1,11 +1,8 @@
-import requests
 from io import BytesIO
-from bs4 import BeautifulSoup  # Ensure BeautifulSoup is imported
+from bs4 import BeautifulSoup
+import requests
 import logging
-from dotenv import load_dotenv
-import os
-
-load_dotenv()
+from urllib.parse import urljoin
 
 # Configure logging
 logging.basicConfig(
@@ -14,79 +11,49 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-def upload_image_to_graph(image_data):
-    """
-    Uploads an image to Facebook and returns its attachment ID.
-    
-    :param image_data: The image data as BytesIO.
-    :return: A dictionary with success status and attachment ID or error message.
-    """
-    url = "https://graph.facebook.com/v21.0/me/message_attachments"
-    params = {"access_token": os.getenv("PAGE_ACCESS_TOKEN")}
-    files = {"filedata": ("image.jpg", image_data, "image/jpeg")}
-    data = {"message": '{"attachment":{"type":"image", "payload":{}}}'}
-    
-    try:
-        response = requests.post(url, params=params, files=files, data=data)
-        response.raise_for_status()
-        result = response.json()
-        return {"success": True, "attachment_id": result.get("attachment_id")}
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Failed to upload image to Facebook: {e}")
-        return {"success": False, "data": f"🚨 Error uploading image: {str(e)}"}
-
 def execute(message):
     """
-    Scrapes images from Bing based on the search term and uploads them to Facebook.
+    Scrapes images from Bing based on the search term and returns the first 5 images as BytesIO objects.
     
-    :param message: Search term to fetch images.
-    :return: List of dictionaries containing success status and attachment ID or error message.
+    :param search_term: Search term to fetch images.
+    :return: List of dictionaries containing success status and image data or error message.
     """
-    if not message:
-        return [{"success": False, "data": "❌ Please provide a search term after that command."}]
+    if not search_term.strip():
+        return [{"success": False, "data": "❌ Please provide a valid search term."}]
 
     url = f"https://www.bing.com/images/search?q={message}"
-    logging.info(f"Fetching URL: {url}")
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
     
+    logging.info(f"Fetching URL: {url}")
     try:
-        # Send a GET request to fetch the webpage
-        response = requests.get(url)
+        response = requests.get(url, headers=headers)
         response.raise_for_status()
-        logging.info(f"Successfully fetched the webpage for search term: {message}")
     except requests.exceptions.RequestException as e:
         logging.error(f"Failed to fetch webpage: {e}")
         return [{"success": False, "data": f"🚨 Failed to fetch webpage: {str(e)}"}]
     
-    # Parse the webpage content
     soup = BeautifulSoup(response.content, 'html.parser')
     image_tags = soup.find_all('img', class_=['mimg', 'rms_img', 'vimgld'])
     if not image_tags:
-        logging.warning(f"No images found for search term: {message}")
         return [{"success": False, "data": "🚨 No images found for the search term."}]
-    
+
     images = []
-    for i, img_tag in enumerate(image_tags[9:10]):  # Fetch the first 5 images
-        src = img_tag.get('src')
+    for i, img_tag in enumerate(image_tags[9:14]):  # Fetch the first 5 images
+        src = img_tag.get('src') or img_tag.get('data-src')
         if not src:
-            logging.warning(f"Image tag {i + 1} has no 'src' attribute.")
             continue
-        
+        src = urljoin("https://www.bing.com", src)
+
         try:
-            # Fetch the image
-            img_response = requests.get(src)
+            img_response = requests.get(src, headers=headers)
             img_response.raise_for_status()
-            image_data = BytesIO(img_response.content)  # Get the image data as bytes
-            
-            # Upload the image to Facebook
-            upload_response = upload_image_to_graph(image_data)
-            if upload_response.get("success"):
-                images.append({"success": True, "data": {"type": "image", "content": upload_response["attachment_id"]}})
-            else:
-                images.append({"success": False, "data": upload_response["data"]})
-            logging.info(f"Image {i + 1} processed successfully from: {src}")
+            image_data = BytesIO(img_response.content)
+            images.append({"success": True, "data": image_data})
+            logging.info(f"Image {i + 1} fetched successfully from: {src}")
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to fetch image {i + 1} from {src}: {e}")
-            images.append({"success": False, "data": f"🚨 Failed to fetch image {i + 1} from {src}: {str(e)}"})
-    
-    logging.info(f"Total images processed: {len(images)}")
+            images.append({"success": False, "data": f"🚨 Failed to fetch image {i + 1}: {str(e)}"})
+
     return images
