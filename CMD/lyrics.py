@@ -84,7 +84,7 @@ def execute(message):
     result = fetch_lyrics(message)
     if result["success"]:
         data = result["data"]
-        image_bytes = get_image_bytes(data["image"])
+        image_bytes = get_image_bytes(data["thumbnail"])
         song_details = display_song(data)
         return image_bytes, song_details
     else:
