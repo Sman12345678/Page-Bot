@@ -139,8 +139,17 @@ def webhook():
                             logger.error("Error handling attachment: %s", str(e))
                             send_message(sender_id, "Error processing attachment.")
                     elif message_text:
-                        response = messageHandler.handle_text_message(message_text)
+                        # Update user memory
+                        update_user_memory(sender_id, message_text)
+
+                        # Get conversation history
+                        conversation_history = get_conversation_history(sender_id)
+                        full_message = f"Conversation so far:\n{conversation_history}\n\nUser: {message_text}"
+                        
+                        # Generate response
+                        response = messageHandler.handle_text_message(full_message)
                         send_message(sender_id, response)
+                    
                     else:
                         send_message(sender_id, "Sorry, I didn't understand that message.")
 
