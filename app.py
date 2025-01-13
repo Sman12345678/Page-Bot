@@ -7,6 +7,7 @@ import requests
 import messageHandler  # Import the message handler module
 import time
 from io import BytesIO
+from collections import deque
 
 # Load environment variables
 load_dotenv()
