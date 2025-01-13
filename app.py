@@ -22,7 +22,17 @@ VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 PREFIX = os.getenv("PREFIX", "/")
 
+user_memory = {}
 
+# Function to store the last three messages per user
+def update_user_memory(user_id, message):
+    if user_id not in user_memory:
+        user_memory[user_id] = deque(maxlen=15)
+    user_memory[user_id].append(message)
+
+# Function to retrieve conversation history for a user
+def get_conversation_history(user_id):
+    return "\n".join(user_memory.get(user_id, []))
 # Function to upload an image to Facebook's Graph API
 def upload_image_to_graph(image_data):
     url = f"https://graph.facebook.com/v21.0/me/message_attachments"
