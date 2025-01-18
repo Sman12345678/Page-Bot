@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import requests
 import logging
 from urllib.parse import urljoin
+import app as Suleiman 
 
 # Configure logging
 logging.basicConfig(
@@ -55,5 +56,6 @@ def execute(message):
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to fetch image {i + 1} from {src}: {e}")
             images.append({"success": False, "data": f"🚨 Failed to fetch image {i + 1}: {str(e)}"})
-
-    return images
+            response = Suleiman.upload_image_to_graph(images)
+                        Suleiman.send_message(sender_id, response)
+    
