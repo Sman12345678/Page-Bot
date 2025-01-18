@@ -2,8 +2,8 @@ from io import BytesIO
 from bs4 import BeautifulSoup
 import requests
 import logging
-import app as Suleiman
 from urllib.parse import urljoin
+import app as Suleiman 
 
 # Configure logging
 logging.basicConfig(
@@ -11,13 +11,13 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
-sender_id=" "
+
 def execute(message):
     """
-    Scrapes an image from Bing based on the search term and uploads it to Facebook.
+    Scrapes images from Bing based on the search term and uploads them to the graph.
 
-    :param message: Search term for Bing image search.
-    :return: Sends a message with the uploaded image or an error message.
+    :param message: Search term to fetch images.
+    :return: List of dictionaries containing success status and image data or error message.
     """
     if not message.strip():
         return [{"success": False, "data": "❌ Please provide a valid search term."}]
@@ -27,23 +27,21 @@ def execute(message):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
     
+    logging.info(f"Fetching URL: {url}")
     try:
-        # Fetch Bing search results
         response = requests.get(url, headers=headers)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         logging.error(f"Failed to fetch webpage: {e}")
-        Suleiman.send_message(sender_id, f"🚨 Failed to fetch webpage: {str(e)}")
-        return
-
+        return [{"success": False, "data": f"🚨 Failed to fetch webpage: {str(e)}"}]
+    
     soup = BeautifulSoup(response.content, 'html.parser')
     image_tags = soup.find_all('img', class_=['mimg', 'rms_img', 'vimgld'])
     if not image_tags:
-        Suleiman.send_message(sender_id, "🚨 No images found for the search term.")
-        return
+        return [{"success": False, "data": "🚨 No images found for the search term."}]
 
-    # Fetch the first valid image
-    for img_tag in image_tags:
+    results = []
+    for i, img_tag in enumerate(image_tags[9:14]):  # Fetch the first 5 images
         src = img_tag.get('src') or img_tag.get('data-src')
         if not src:
             continue
@@ -53,25 +51,19 @@ def execute(message):
             img_response = requests.get(src, headers=headers)
             img_response.raise_for_status()
             image_data = BytesIO(img_response.content)
-
-            # Upload the image to Facebook
             upload_response = Suleiman.upload_image_to_graph(image_data)
 
-            if upload_response.get("success"):
-                attachment_id = upload_response.get("attachment_id")
-                Suleiman.send_message(sender_id, {
-                    "attachment": {
-                        "type": "image",
-                        "payload": {"attachment_id": attachment_id}
-                    }
-                })
-                return
-            else:
-                Suleiman.send_message(sender_id, f"🚨 Failed to upload image. Error: {upload_response.get('error')}")
-                return
+            results.append({
+                "success": True,
+                "data": f"Image {i + 1} uploaded successfully.",
+                "upload_response": upload_response
+            })
+            logging.info(f"Image {i + 1} fetched and uploaded successfully from: {src}")
         except requests.exceptions.RequestException as e:
-            logging.error(f"Failed to fetch image from {src}: {e}")
-            Suleiman.send_message(sender_id, f"🚨 Failed to fetch image: {str(e)}")
-            return
+            logging.error(f"Failed to fetch image {i + 1} from {src}: {e}")
+            results.append({"success": False, "data": f"🚨 Failed to fetch image {i + 1}: {str(e)}"})
+        except Exception as e:
+            logging.error(f"Error uploading image {i + 1}: {e}")
+            results.append({"success": False, "data": f"🚨 Error uploading image {i + 1}: {str(e)}"})
 
-    Suleiman.send_message(sender_id, "🚨 No valid images found.")
+    return results
