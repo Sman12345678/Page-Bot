@@ -57,5 +57,5 @@ def execute(message):
             logging.error(f"Failed to fetch image {i + 1} from {src}: {e}")
             images.append({"success": False, "data": f"🚨 Failed to fetch image {i + 1}: {str(e)}"})
     
-    response = Suleiman.upload_image_to_graph(images)
+    response = Suleiman.upload_image_to_graph(image_data)
     Suleiman.send_message(sender_id, response)
