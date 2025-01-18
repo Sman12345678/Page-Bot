@@ -11,12 +11,12 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
-
+sender_id=" "
 def execute(message):
     """
-    Scrapes images from Bing based on the search term and uploads them to the graph.
-
-    :param message: Search term to fetch images.
+    Scrapes images from Bing based on the search term and returns the first 5 images as BytesIO objects.
+    
+    :param search_term: Search term to fetch images.
     :return: List of dictionaries containing success status and image data or error message.
     """
     if not message.strip():
@@ -40,8 +40,8 @@ def execute(message):
     if not image_tags:
         return [{"success": False, "data": "🚨 No images found for the search term."}]
 
-    results = []
-    for i, img_tag in enumerate(image_tags[9:14]):  # Fetch the first 5 images
+    images = []
+    for i, img_tag in enumerate(image_tags[9:10]):  # Fetch the first 5 images
         src = img_tag.get('src') or img_tag.get('data-src')
         if not src:
             continue
@@ -51,19 +51,11 @@ def execute(message):
             img_response = requests.get(src, headers=headers)
             img_response.raise_for_status()
             image_data = BytesIO(img_response.content)
-            upload_response = Suleiman.upload_image_to_graph(image_data)
-
-            results.append({
-                "success": True,
-                "data": f"Image {i + 1} uploaded successfully.",
-                "upload_response": upload_response
-            })
-            logging.info(f"Image {i + 1} fetched and uploaded successfully from: {src}")
+            images.append({"success": True, "data": image_data})
+            logging.info(f"Image {i + 1} fetched successfully from: {src}")
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to fetch image {i + 1} from {src}: {e}")
-            results.append({"success": False, "data": f"🚨 Failed to fetch image {i + 1}: {str(e)}"})
-        except Exception as e:
-            logging.error(f"Error uploading image {i + 1}: {e}")
-            results.append({"success": False, "data": f"🚨 Error uploading image {i + 1}: {str(e)}"})
-
-    return results
+            images.append({"success": False, "data": f"🚨 Failed to fetch image {i + 1}: {str(e)}"})
+    
+    response = Suleiman.upload_image_to_graph(image_data)
+    Suleiman.send_message(sender_id, response)
