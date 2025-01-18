@@ -41,7 +41,7 @@ def execute(message):
         return [{"success": False, "data": "🚨 No images found for the search term."}]
 
     images = []
-    for i, img_tag in enumerate(image_tags[9:14]):  # Fetch the first 5 images
+    for i, img_tag in enumerate(image_tags[9:10]):  # Fetch the first 5 images
         src = img_tag.get('src') or img_tag.get('data-src')
         if not src:
             continue
