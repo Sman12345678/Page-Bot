@@ -11,7 +11,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
-
+sender_id=" "
 def execute(message):
     """
     Scrapes an image from Bing based on the search term and uploads it to Facebook.
