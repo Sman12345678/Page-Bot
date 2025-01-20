@@ -1,5 +1,4 @@
 import requests
-from io import BytesIO
 
 Info = {
     "Description": "Provide Lyrics For The Song Given"
@@ -7,7 +6,7 @@ Info = {
 
 def fetch_lyrics(song):
     """
-    Fetches song details (lyrics, title, artist, and image) from the API.
+    Fetches song details (lyrics, title, artist) from the API.
     
     :param song: The song name to search for.
     :return: A dictionary containing song details or an error message.
@@ -30,20 +29,6 @@ def fetch_lyrics(song):
     except requests.exceptions.RequestException as e:
         return {"success": False, "error": f"🚨 Error fetching lyrics: {str(e)}"}
 
-def get_image_bytes(image_url):
-    """
-    Fetches the image as bytes.
-    
-    :param image_url: URL of the image to fetch.
-    :return: The image as BytesIO object or an error message.
-    """
-    try:
-        response = requests.get(image_url)
-        response.raise_for_status()
-        return BytesIO(response.content)  # Return image as BytesIO
-    except requests.exceptions.RequestException as e:
-        return f"🚨 Failed to fetch image: {str(e)}"
-
 def display_song(data):
     """
     Returns the song's details in a formatted string.
@@ -52,29 +37,28 @@ def display_song(data):
     :return: A formatted string with the song's details.
     """
     song_details = (
-        f"\n{'➖' * 5}\n"
+        f"\n{'_' * 5}\n"
         f"🎵 Title: {data['title']}\n"
         f"🎤 Artist: KORA AI\n"
         f"{'➖' * 5}\n\n"
         f"📋 Lyrics:\n\n{data['lyrics']}\n"
-        f"{'➖' * 5}"
+        f"{'_' * 5}"
     )
     return song_details
 
 def execute(song_name):
     """
-    Main function to fetch and display song details, including the album cover image.
+    Main function to fetch and display song details.
     
     :param song_name: The name of the song to search for.
-    :return: A tuple containing the image as BytesIO and a formatted string with song details.
+    :return: A formatted string with song details.
     """
     result = fetch_lyrics(song_name)
     if result["success"]:
         data = result["data"]
-        image_data = get_image_bytes(data["thumbnail"])
         song_details = display_song(data)
-        return image_data, song_details
+        return song_details
     else:
-        return None, result["error"]
+        return result["error"]
 
 # Example usage
