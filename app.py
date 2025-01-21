@@ -99,7 +99,7 @@ def webhook():
                     message_text = event["message"].get("text")
                     message_attachments = event["message"].get("attachments")
                     message_command = event["message"].get("text")
-                    response = None
+
                     # Check if message has text with a command prefix
                     if message_command and message_command.startswith(PREFIX):
                         sliced_message = message_command[len(PREFIX):]
@@ -161,9 +161,6 @@ def webhook():
 def send_message(recipient_id, message=None):
     params = {"access_token": PAGE_ACCESS_TOKEN}
 
-    def split_message(text, limit=2000):
-        return [text[i:i + limit] for i in range(0, len(text), limit)]
-
     if isinstance(message, dict):
         message_type = message.get("type")
         content = message.get("content")
@@ -189,60 +186,15 @@ def send_message(recipient_id, message=None):
                 },
             }
         elif message_type == "text":
-            for part in split_message(content):
-                data = {
-                    "recipient": {"id": recipient_id},
-                    "message": {"text": part},
-                }
-                headers = {"Content-Type": "application/json"}
-                response = requests.post(
-                    f"https://graph.facebook.com/v21.0/me/messages",
-                    params=params,
-                    headers=headers,
-                    json=data
-                )
-                if response.status_code != 200:
-                    try:
-                        logger.error("Failed to send message: %s", response.json())
-                    except Exception:
-                        logger.error("Failed to send message. Status code: %d", response.status_code)
-        else:
-            logger.error("Unsupported message type: %s", message_type)
-            return
-    else:
-        if not isinstance(message, str):
-            logger.error("Message content is not a string: %s", message)
-            message = str(message) if message else "An error occurred while processing your request."
-        try:
-            message = message.encode("utf-8").decode("utf-8")
-        except Exception as e:
-            logger.error("Failed to encode message to UTF-8: %s", str(e))
-            message = "An error occurred while processing your request."
-        for part in split_message(message):
             data = {
                 "recipient": {"id": recipient_id},
-                "message": {"text": part},
+                "message": {"text": content},
             }
-            headers = {"Content-Type": "application/json"}
-            response = requests.post(
-                f"https://graph.facebook.com/v21.0/me/messages",
-                params=params,
-                headers=headers,
-                json=data
-            )
-            if response.status_code != 200:
-                try:
-                    logger.error("Failed to send message: %s", response.json())
-                except Exception:
-                    logger.error("Failed to send message. Status code: %d", response.status_code)
-
-    if response.status_code == 200:
-        logger.info("Message sent successfully to user %s", recipient_id)
+        else:
+            logger.error("Unsupported message type: %s", message_type)
+            return 
     else:
-        try:
-            logger.error("Failed to send message: %s", response.json())
-        except Exception:
-            logger.error("Failed to send message. Status code: %d", response.status_code)
+        if not isinstance(message, str):
             logger.error("Message content is not a string: %s", message)
             message = str(message) if message else "An error occurred while processing your request."
         try:
