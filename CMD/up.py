@@ -7,7 +7,7 @@ Info = {
     "owner": "Kolawole Suleiman",
     "version": "v1.0",
     "purpose": "Provides assistance, information, and companionship.",
-    "last_update": "September 14, 2024"
+    "last_update": "January 10, 2025"
 }
 
 def format_duration(seconds):
@@ -31,9 +31,9 @@ def execute(message=None):
 
     # Visual and structured response
     response = (
-        "╭───────────────╮\n"
+        "╭───────────╮\n"
         "│       🤖 KORA AI Status       │\n"
-        "╰───────────────╯\n\n"
+        "╰───────────╯\n\n"
         f"🔷 Bot Name: {Info['bot_name']}\n"
         f"👤 Owner: {Info['owner']}\n"
         f"📌 Version: {Info['version']}\n"
@@ -41,9 +41,9 @@ def execute(message=None):
         f"📅 Last Update: {Info['last_update']}\n\n"
         "⏳ Uptime:\n"
         f"   🕒 {uptime_str}\n\n"
-        "╭──────────────────╮\n"
+        "╭────────────╮\n"
         "│ 🙏 Thank you for using KORA AI! │\n"
-        "╰──────────────────╯\n"
+        "╰────────────╯\n"
     )
 
     return response
