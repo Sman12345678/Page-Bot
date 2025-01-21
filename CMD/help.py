@@ -10,9 +10,9 @@ def execute(message=None):
     response = (
         "📜 **KORA AI Command List** 📜\n\n"
         "Here are the available commands:\n\n"
-        "╭───────────────────╮\n"
+        "╭─────────── ─────╮\n"
         "│   📂 Command Overview  │\n"
-        "╰───────────────────╯\n\n"
+        "╰─────────────────╯\n\n"
     )
 
     # Iterate over each file in the CMD folder
@@ -30,7 +30,7 @@ def execute(message=None):
                 response += (
                     f"📌 **/{command_name}**\n"
                     f"   📖 *Description*: {description}\n"
-                    f"   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
+                    f"   ~~~~~~~~~~~~~~~~~~~~~\n"
                 )
 
             except Exception as e:
@@ -38,7 +38,7 @@ def execute(message=None):
                 response += (
                     f"📌 **/{command_name}**\n"
                     f"   ⚠️ *Description*: Unable to load description.\n"
-                    f"   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
+                    f"   ~~~~~~~~~~~~~~~~~~~~~\n"
                 )
 
     # Footer with some extra info or design
