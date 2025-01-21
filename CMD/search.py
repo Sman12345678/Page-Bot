@@ -36,6 +36,6 @@ def execute(message):
         link = item.get('link', 'No link')
         description = item.get('snippet', 'No description')
         
-        results.append({"⚒️Title": title, "📎Link": link, "📋Description": description})
+        results.append({"⚒️Title": title,"\n" "📎Link": link, "\n" "📋Description": description})
     
     return results
