@@ -99,7 +99,7 @@ def webhook():
                     message_text = event["message"].get("text")
                     message_attachments = event["message"].get("attachments")
                     message_command = event["message"].get("text")
-
+                    response = None
                     # Check if message has text with a command prefix
                     if message_command and message_command.startswith(PREFIX):
                         sliced_message = message_command[len(PREFIX):]
