@@ -1,4 +1,4 @@
-# Brain.py This File is Designed For The Purpose Of Making Bot Wiser Please Do Not Misuse or Abuse API Key
+#Please Do Not Misuse or Abuse API Key
 import requests
 Info={
     "Description":"Perform Google Search"
