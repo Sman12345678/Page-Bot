@@ -44,7 +44,7 @@ Today date is:{}
 """.format(time_now)
 
 # Image analysis prompt
-IMAGE_ANALYSIS_PROMPT = """Analyize the image keenly and explain it's content,if it's a text translate it and say the language used"""
+IMAGE_ANALYSIS_PROMPT = """Analyize the image keenly and explain it's content,if it's a text translate it and identify the Language. If it Contain a Question Solve it perfectly"""
 
 def initialize_text_model():
     """Initialize Gemini model for text processing"""
