@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
 from flask_cors import CORS
 import requests
@@ -34,6 +34,7 @@ def update_user_memory(user_id, message):
 # Function to retrieve conversation history for a user
 def get_conversation_history(user_id):
     return "\n".join(user_memory.get(user_id, []))
+
 # Function to upload an image to Facebook's Graph API
 def upload_image_to_graph(image_data):
     url = f"https://graph.facebook.com/v21.0/me/message_attachments"
@@ -242,6 +243,9 @@ start_time = time.time()
 def get_bot_uptime():
     return time.time() - start_time
 
+@app.route('/home')
+def home():
+    return render_template('index.html')
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=3000)
