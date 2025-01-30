@@ -35,6 +35,10 @@ def update_user_memory(user_id, message):
 def get_conversation_history(user_id):
     return "\n".join(user_memory.get(user_id, []))
 
+# Function to split long messages
+def split_message(message, limit=2000):
+    return [message[i:i+limit] for i in range(0, len(message), limit)]
+
 # Function to upload an image to Facebook's Graph API
 def upload_image_to_graph(image_data):
     url = f"https://graph.facebook.com/v22.0/me/message_attachments"
@@ -187,10 +191,25 @@ def send_message(recipient_id, message=None):
                 },
             }
         elif message_type == "text":
-            data = {
-                "recipient": {"id": recipient_id},
-                "message": {"text": content},
-            }
+            messages = split_message(content)
+            for msg in messages:
+                data = {
+                    "recipient": {"id": recipient_id},
+                    "message": {"text": msg},
+                }
+                headers = {"Content-Type": "application/json"}
+                response = requests.post(
+                    f"https://graph.facebook.com/v22.0/me/messages",
+                    params=params,
+                    headers=headers,
+                    json=data
+                )
+                if response.status_code != 200:
+                    try:
+                        logger.error("Failed to send message: %s", response.json())
+                    except Exception:
+                        logger.error("Failed to send message. Status code: %d", response.status_code)
+            return
         else:
             logger.error("Unsupported message type: %s", message_type)
             return 
@@ -199,22 +218,28 @@ def send_message(recipient_id, message=None):
             logger.error("Message content is not a string: %s", message)
             message = str(message) if message else "An error occurred while processing your request."
         try:
-            message = message.encode("utf-8").decode("utf-8")
+            messages = split_message(message.encode("utf-8").decode("utf-8"))
         except Exception as e:
             logger.error("Failed to encode message to UTF-8: %s", str(e))
-            message = "An error occurred while processing your request."
-        data = {
-            "recipient": {"id": recipient_id},
-            "message": {"text": message},
-        }
+            messages = ["An error occurred while processing your request."]
 
-    headers = {"Content-Type": "application/json"}
-    response = requests.post(
-        f"https://graph.facebook.com/v22.0/me/messages",
-        params=params,
-        headers=headers,
-        json=data
-    )
+        for msg in messages:
+            data = {
+                "recipient": {"id": recipient_id},
+                "message": {"text": msg},
+            }
+            headers = {"Content-Type": "application/json"}
+            response = requests.post(
+                f"https://graph.facebook.com/v22.0/me/messages",
+                params=params,
+                headers=headers,
+                json=data
+            )
+            if response.status_code != 200:
+                try:
+                    logger.error("Failed to send message: %s", response.json())
+                except Exception:
+                    logger.error("Failed to send message. Status code: %d", response.status_code)
 
     if response.status_code == 200:
         logger.info("Message sent successfully to user %s", recipient_id)
@@ -243,7 +268,7 @@ start_time = time.time()
 def get_bot_uptime():
     return time.time() - start_time
 
-@app.route('/')
+@app.route('/home')
 def home():
     return render_template('index.html')
 
