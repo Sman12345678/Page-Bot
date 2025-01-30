@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facebook Bot Showcase</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background-color: #0b0014;
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+
+        .hero {
+            position: relative;
+            height: 100vh;
+            background: radial-gradient(circle, rgba(20, 3, 45, 1) 0%, rgba(10, 0, 30, 1) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            color: #ae00ff;
+            text-shadow: 0 0 20px #ae00ff;
+            animation: flicker 1.5s infinite alternate;
+        }
+
+        @keyframes flicker {
+            from { text-shadow: 0 0 10px #ae00ff; }
+            to { text-shadow: 0 0 30px #ae00ff, 0 0 60px #ae00ff; }
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            max-width: 600px;
+            margin-top: 10px;
+            color: #ccc;
+        }
+
+        .features, .installation {
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .features h2, .installation h2 {
+            font-size: 2rem;
+            color: #ae00ff;
+            text-shadow: 0 0 15px #ae00ff;
+        }
+
+        .feature-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+            width: 250px;
+            box-shadow: 0 0 15px #ae00ff;
+            transition: transform 0.3s ease-in-out;
+            backdrop-filter: blur(5px);
+        }
+
+        .card:hover {
+            transform: scale(1.1);
+        }
+
+        .installation pre {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: left;
+            display: inline-block;
+            margin-top: 20px;
+            color: #ae00ff;
+            font-size: 1rem;
+            overflow-x: auto;
+        }
+
+        footer {
+            padding: 20px;
+            text-align: center;
+            background: #1b0031;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="hero">
+        <div>
+            <h1>Welcome to the Future of AI Chatbots</h1>
+            <p>Meet <strong>Your Facebook Bot</strong> – an intelligent assistant that automates responses and boosts engagement effortlessly.</p>
+        </div>
+    </div>
+
+    <section class="features">
+        <h2>Why Use This Bot?</h2>
+        <div class="feature-list">
+            <div class="card">
+                <h3>⚡ Instant Responses</h3>
+                <p>Engage users 24/7 with automated replies.</p>
+            </div>
+            <div class="card">
+                <h3>🤖 AI-Powered</h3>
+                <p>Advanced NLP for smart, human-like conversations.</p>
+            </div>
+            <div class="card">
+                <h3>📈 Boost Engagement</h3>
+                <p>Increase retention and customer satisfaction.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="installation">
+        <h2>How to Clone & Use the Bot</h2>
+        <pre>
+            <code>
+git clone https://github.com/Sman12345678/Page-Bot
+cd facebook-bot
+pip install -r requirements.txt
+python app.py
+            </code>
+        </pre>
+    </section>
+
+    <footer>
+        <p>Made with 💜 by Suleiman | 2025</p>
+    </footer>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(card => {
+                card.addEventListener('mouseover', () => {
+                    card.style.transform = "scale(1.2)";
+                });
+                card.addEventListener('mouseleave', () => {
+                    card.style.transform = "scale(1)";
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>
