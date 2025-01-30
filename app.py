@@ -37,7 +37,7 @@ def get_conversation_history(user_id):
 
 # Function to upload an image to Facebook's Graph API
 def upload_image_to_graph(image_data):
-    url = f"https://graph.facebook.com/v21.0/me/message_attachments"
+    url = f"https://graph.facebook.com/v22.0/me/message_attachments"
     params = {"access_token": PAGE_ACCESS_TOKEN}
     files = {"filedata": ("image.jpg", image_data, "image/jpeg")}
     data = {"message": '{"attachment":{"type":"image", "payload":{}}}'}
@@ -57,7 +57,7 @@ def upload_image_to_graph(image_data):
 
 # Function to upload audio to Facebook's Graph API
 def upload_audio_to_graph(audio_data):
-    url = f"https://graph.facebook.com/v21.0/me/message_attachments"
+    url = f"https://graph.facebook.com/v22.0/me/message_attachments"
     params = {"access_token": PAGE_ACCESS_TOKEN}
     files = {"filedata": ("audio.mp3", audio_data, "audio/mpeg")}
     data = {"message": '{"attachment":{"type":"audio", "payload":{}}}'}
@@ -210,7 +210,7 @@ def send_message(recipient_id, message=None):
 
     headers = {"Content-Type": "application/json"}
     response = requests.post(
-        f"https://graph.facebook.com/v21.0/me/messages",
+        f"https://graph.facebook.com/v22.0/me/messages",
         params=params,
         headers=headers,
         json=data
