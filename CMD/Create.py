@@ -3,7 +3,6 @@ from bs4 import BeautifulSoup
 import requests
 import logging
 from urllib.parse import urljoin
-import base64
 
 # Configure logging
 logging.basicConfig(
@@ -14,7 +13,7 @@ logging.basicConfig(
 
 def execute(message):
     """
-    Scrapes images from Bing based on the search term and returns the first 5 images as base64 encoded strings.
+    Scrapes images from Bing based on the search term and returns the first 5 images as BytesIO objects.
     
     :param search_term: Search term to fetch images.
     :return: List of dictionaries containing success status and image data or error message.
@@ -39,22 +38,22 @@ def execute(message):
     image_tags = soup.find_all('img', class_=['mimg', 'rms_img', 'vimgld'])
     if not image_tags:
         return [{"success": False, "data": "🚨 No images found for the search term."}]
-    
+
     images = []
     for i, img_tag in enumerate(image_tags[9:14]):  # Fetch the first 5 images
         src = img_tag.get('src') or img_tag.get('data-src')
         if not src:
             continue
         src = urljoin("https://www.bing.com", src)
-        
+
         try:
             img_response = requests.get(src, headers=headers)
             img_response.raise_for_status()
-            image_data = base64.b64encode(img_response.content).decode('utf-8')
+            image_data = BytesIO(img_response.content)
             images.append({"success": True, "data": image_data})
             logging.info(f"Image {i + 1} fetched successfully from: {src}")
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to fetch image {i + 1} from {src}: {e}")
             images.append({"success": False, "data": f"🚨 Failed to fetch image {i + 1}: {str(e)}"})
-    
+
     return images
