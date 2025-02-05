@@ -268,7 +268,7 @@ start_time = time.time()
 def get_bot_uptime():
     return time.time() - start_time
 
-@app.route('/home')
+@app.route('/')
 def home():
     return render_template('index.html')
 
