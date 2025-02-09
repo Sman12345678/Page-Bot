@@ -93,18 +93,22 @@
             font-size: 1rem;
             overflow-x: auto;
         }
-.player-container {
-    background: #0f3460;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-    display: inline-block;
-}
 
-audio {
-    width: 100%;
-    outline: none;
-                }
+        .player-container {
+            background: #0f3460;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            display: inline-block;
+            margin: 20px auto; /* Center the player container */
+            max-width: 600px; /* Limit the maximum width */
+        }
+
+        audio {
+            width: 100%;
+            outline: none;
+        }
+
         footer {
             padding: 20px;
             text-align: center;
@@ -143,18 +147,20 @@ audio {
         <h2>How to Clone & Use the Bot</h2>
         <pre>
             <code>
-git clone https://github.com/Sman12345678/Page-Bot
-cd facebook-bot
+git clone https://github.com/Sman12345678/Page-Bot 
 pip install -r requirements.txt
 python app.py
             </code>
         </pre>
     </section>
-<div class="player-container">
-    <audio id="audioPlayer" controls autoplay>
-        <source src="audio/Khalid-Young-Dumb-Broke-via-Naijafinix.com_.mp3" type="audio/mpeg">
-    </audio>
-</div>
+
+    <div class="player-container">
+        <audio id="audioPlayer" controls autoplay>
+            <source src="audio/Khalid-Young-Dumb-Broke-via-Naijafinix.com_.mp3" type="audio/mpeg">
+            Your browser does not support the audio element.
+        </audio>
+    </div>
+
     <footer>
         <p>Made with 💜 by Suleiman | 2025</p>
     </footer>
@@ -174,4 +180,4 @@ python app.py
     </script>
 
 </body>
-</html>
+    </html>
