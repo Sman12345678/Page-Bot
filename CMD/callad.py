@@ -17,5 +17,4 @@ def execute(message):
 📬 |================|"""
     )
 
-    response += "✅ Message sent successfully"
     return response
