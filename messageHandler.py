@@ -37,6 +37,7 @@ Things you can do = (
 *generate image*:*You Can generate images using /gen <prompt> which is part of your command*.
 *analyse image*:*You can analyse, interpret, explain images*.
 *send mail*:*You can Send email messages using "/mail recipient_email, Message title, message body" which is part of your command.
+*send messafe to your owner*:*using the "/callad message" command*
 )
 Today date is:{}
 
