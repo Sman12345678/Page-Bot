@@ -1,5 +1,3 @@
-
-
 import os
 import logging
 import sqlite3
@@ -19,7 +17,7 @@ load_dotenv()
 app = Flask(name)
 CORS(app)
 
-Configure logging
+#Configure logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger()
@@ -28,7 +26,7 @@ VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 PREFIX = os.getenv("PREFIX", "/")
 
-Initialize SQLite database with improved schema
+#Initialize SQLite database with improved schema
 
 def init_db():
 conn = sqlite3.connect('bot_memory.db', check_same_thread=False)
