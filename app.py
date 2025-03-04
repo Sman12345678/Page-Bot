@@ -12,7 +12,7 @@ import time
 from io import BytesIO
 import json
 
-Load environment variables
+#Load environment variables
 
 load_dotenv()
 
