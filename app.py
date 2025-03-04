@@ -1,3 +1,5 @@
+
+
 import os
 import logging
 import sqlite3
@@ -5,17 +7,20 @@ from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
 from flask_cors import CORS
 import requests
-import messageHandler  # Import the message handler module
+import messageHandler
 import time
 from io import BytesIO
+import json
 
-# Load environment variables
+Load environment variables
+
 load_dotenv()
 
-app = Flask(__name__)
+app = Flask(name)
 CORS(app)
 
-# Configure logging
+Configure logging
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger()
 
@@ -23,283 +28,271 @@ VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 PREFIX = os.getenv("PREFIX", "/")
 
-# Initialize SQLite database
-conn = sqlite3.connect('user_memory.db', check_same_thread=False)
+Initialize SQLite database with improved schema
+
+def init_db():
+conn = sqlite3.connect('bot_memory.db', check_same_thread=False)
 c = conn.cursor()
 
-# Create table if it doesn't exist
+# Create tables with improved schema  
+c.execute('''  
+    CREATE TABLE IF NOT EXISTS conversations (  
+        id INTEGER PRIMARY KEY AUTOINCREMENT,  
+        user_id TEXT NOT NULL,  
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,  
+        message TEXT NOT NULL,  
+        sender TEXT NOT NULL,  
+        message_type TEXT DEFAULT 'text',  
+        metadata TEXT  
+    )  
+''')  
+  
+c.execute('''  
+    CREATE TABLE IF NOT EXISTS user_context (  
+        user_id TEXT PRIMARY KEY,  
+        last_interaction DATETIME,  
+        conversation_state TEXT,  
+        user_preferences TEXT  
+    )  
+''')  
+  
+conn.commit()  
+return conn
+
+conn = init_db()
+
+def update_user_memory(user_id, message, sender="User", message_type="text", metadata=None):
+c = conn.cursor()
+
+try:  
+    # Store the message with metadata  
+    c.execute('''  
+        INSERT INTO conversations (user_id, message, sender, message_type, metadata)  
+        VALUES (?, ?, ?, ?, ?)  
+    ''', (user_id, message, sender, message_type, json.dumps(metadata) if metadata else None))  
+      
+    # Update user context  
+    c.execute('''  
+        INSERT OR REPLACE INTO user_context (user_id, last_interaction, conversation_state)  
+        VALUES (?, CURRENT_TIMESTAMP, ?)  
+    ''', (user_id, 'active'))  
+      
+    conn.commit()  
+except Exception as e:  
+    logger.error(f"Database error: {str(e)}")  
+    conn.rollback()
+
+def get_conversation_history(user_id, limit=10):
+c = conn.cursor()
+try:
+# Get recent conversation history
 c.execute('''
-    CREATE TABLE IF NOT EXISTS user_memory (
-        user_id TEXT PRIMARY KEY,
-        messages TEXT
-    )
-''')
-conn.commit()
+SELECT sender, message, message_type, metadata
+FROM conversations
+WHERE user_id = ?
+ORDER BY timestamp DESC
+LIMIT ?
+''', (user_id, limit))
 
-# Function to store the last 15 messages per user
-def update_user_memory(user_id, message, sender="User"):
-    c.execute('SELECT messages FROM user_memory WHERE user_id = ?', (user_id,))
-    row = c.fetchone()
-    if row:
-        messages = row[0].split('\n')
-        messages.append(f"{sender}: {message}")
-        if len(messages) > 15:
-            messages.pop(0)
-        messages_str = '\n'.join(messages)
-        c.execute('UPDATE user_memory SET messages = ? WHERE user_id = ?', (messages_str, user_id))
-    else:
-        c.execute('INSERT INTO user_memory (user_id, messages) VALUES (?, ?)', (user_id, f"{sender}: {message}"))
-    conn.commit()
-
-# Function to retrieve conversation history for a user
-def get_conversation_history(user_id):
-    c.execute('SELECT messages FROM user_memory WHERE user_id = ?', (user_id,))
-    row = c.fetchone()
-    if row:
-        return row[0]
+messages = c.fetchall()  
+      
+    # Format conversation history  
+    history = []  
+    for sender, message, msg_type, metadata in reversed(messages):  
+        if metadata:  
+            try:  
+                metadata = json.loads(metadata)  
+            except:  
+                metadata = None  
+          
+        formatted_msg = f"{sender}: "  
+        if msg_type == "image":  
+            formatted_msg += f"[Sent an image: {metadata.get('url', '')}]"  
+        else:  
+            formatted_msg += message  
+              
+        history.append(formatted_msg)  
+          
+    return "\n".join(history)  
+except Exception as e:  
+    logger.error(f"Error retrieving conversation history: {str(e)}")  
     return ""
 
-# Function to split long messages
 def split_message(message, limit=2000):
-    return [message[i:i+limit] for i in range(0, len(message), limit)]
+return [message[i:i+limit] for i in range(0, len(message), limit)]
 
-# Function to upload an image to Facebook's Graph API
 def upload_image_to_graph(image_data):
-    url = f"https://graph.facebook.com/v22.0/me/message_attachments"
-    params = {"access_token": PAGE_ACCESS_TOKEN}
-    files = {"filedata": ("image.jpg", image_data, "image/jpeg")}
-    data = {"message": '{"attachment":{"type":"image", "payload":{}}}'}
+url = f"https://graph.facebook.com/v22.0/me/message_attachments"
+params = {"access_token": PAGE_ACCESS_TOKEN}
+files = {"filedata": ("image.jpg", image_data, "image/jpeg")}
+data = {"message": '{"attachment":{"type":"image", "payload":{}}}'}
 
-    try:
-        response = requests.post(url, params=params, files=files, data=data)
-        if response.status_code == 200):
-            result = response.json()
-            return {"success": True, "attachment_id": result.get("attachment_id")}
-        else:
-            logger.error("Failed to upload image: %s", response.json())
-            return {"success": False, "error": response.json()}
-    except Exception as e:
-        logger.error("Error in upload_image_to_graph: %s", str(e))
-        return {"success": False, "error": str(e)}
+try:  
+    response = requests.post(url, params=params, files=files, data=data)  
+    if response.status_code == 200:  
+        result = response.json()  
+        return {"success": True, "attachment_id": result.get("attachment_id")}  
+    else:  
+        logger.error("Failed to upload image: %s", response.json())  
+        return {"success": False, "error": response.json()}  
+except Exception as e:  
+    logger.error("Error in upload_image_to_graph: %s", str(e))  
+    return {"success": False, "error": str(e)}
 
-# Function to upload audio to Facebook's Graph API
-def upload_audio_to_graph(audio_data):
-    url = f"https://graph.facebook.com/v22.0/me/message_attachments"
-    params = {"access_token": PAGE_ACCESS_TOKEN}
-    files = {"filedata": ("audio.mp3", audio_data, "audio/mpeg")}
-    data = {"message": '{"attachment":{"type":"audio", "payload":{}}}'}
-
-    try:
-        response = requests.post(url, params=params, files=files, data=data)
-        if response.status_code == 200):
-            result = response.json()
-            return {"success": True, "attachment_id": result.get("attachment_id")}
-        else:
-            logger.error("Failed to upload audio: %s", response.json())
-            return {"success": False, "error": response.json()}
-    except Exception as e:
-        logger.error("Error in upload_audio_to_graph: %s", str(e))
-        return {"success": False, "error": str(e)}
-
-# Verification endpoint for Facebook webhook
 @app.route('/webhook', methods=['GET'])
 def verify():
-    token_sent = request.args.get("hub.verify_token")
-    if token_sent == VERIFY_TOKEN:
-        logger.info("Webhook verification successful.")
-        return request.args.get("hub.challenge", "")
-    logger.error("Webhook verification failed: invalid verify token.")
-    return "Verification failed", 403
+token_sent = request.args.get("hub.verify_token")
+if token_sent == VERIFY_TOKEN:
+return request.args.get("hub.challenge", "")
+return "Verification failed", 403
 
-# Main webhook endpoint to handle messages
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    data = request.get_json()
-    logger.info("Received data: %s", data)
+data = request.get_json()
+logger.info("Received data: %s", data)
 
-    if data.get("object") == "page":
-        for entry in data["entry"]:
-            for event in entry.get("messaging", []):
-                if "message" in event:
-                    sender_id = event["sender"]["id"]
-                    message_text = event["message"].get("text")
-                    message_attachments = event["message"].get("attachments")
-                    message_command = event["message"].get("text")
+if data.get("object") == "page":  
+    for entry in data["entry"]:  
+        for event in entry.get("messaging", []):  
+            if "message" in event:  
+                sender_id = event["sender"]["id"]  
+                message_text = event["message"].get("text")  
+                message_attachments = event["message"].get("attachments")  
 
-                    # Check if message has text with a command prefix
-                    if message_command and message_command.startswith(PREFIX):
-                        sliced_message = message_command[len(PREFIX):]
-                        command_name = sliced_message.split()[0]
-                        message = sliced_message[len(command_name):].strip()
-                        response = messageHandler.handle_text_command(command_name, message)
+                if message_text and message_text.startswith(PREFIX):  
+                    # Handle commands  
+                    command_parts = message_text[len(PREFIX):].split(maxsplit=1)  
+                    command_name = command_parts[0]  
+                    message = command_parts[1] if len(command_parts) > 1 else ""  
+                      
+                    response = messageHandler.handle_text_command(command_name, message)  
+                    if isinstance(response, dict) and response.get("success"):  
+                        if isinstance(response["data"], BytesIO):  
+                            upload_response = upload_image_to_graph(response["data"])  
+                            if upload_response.get("success"):  
+                                send_message(sender_id, {"type": "image", "content": upload_response["attachment_id"]})  
+                            else:  
+                                send_message(sender_id, "Failed to upload the image.")  
+                        else:  
+                            send_message(sender_id, response["data"])  
+                    else:  
+                        send_message(sender_id, response)  
 
-                        if isinstance(response, dict) and response.get("success"):
-                            if isinstance(response["data"], BytesIO):  # Handle image
-                                upload_response = upload_image_to_graph(response["data"])
-                                if upload_response.get("success"):
-                                    send_message(sender_id, {"type": "image", "content": upload_response["attachment_id"]})
-                                else:
-                                    send_message(sender_id, "🚨 Failed to upload the image.")
-                            else:
-                                send_message(sender_id, response["data"])
-                        else:
-                            send_message(sender_id, response)
+                elif message_attachments:  
+                    for attachment in message_attachments:  
+                        try:  
+                            if attachment["type"] == "image":  
+                                image_url = attachment["payload"]["url"]  
+                                image_response = requests.get(image_url)  
+                                image_response.raise_for_status()  
+                                image_data = image_response.content  
+                                  
+                                # Store the image interaction in memory  
+                                update_user_memory(  
+                                    sender_id,  
+                                    "[Image sent]",  
+                                    sender="User",  
+                                    message_type="image",  
+                                    metadata={"url": image_url}  
+                                )  
+                                  
+                                response = messageHandler.handle_attachment(  
+                                    image_data,  
+                                    attachment_type="image",  
+                                    user_id=sender_id  
+                                )  
+                                send_message(sender_id, response)  
+                                  
+                                # Store bot's response  
+                                update_user_memory(  
+                                    sender_id,  
+                                    response,  
+                                    sender="Bot",  
+                                    message_type="text",  
+                                    metadata={"response_to_image": image_url}  
+                                )  
+                        except Exception as e:  
+                            logger.error(f"Error handling attachment: {str(e)}")  
+                            send_message(sender_id, "Error processing attachment.")  
+                  
+                elif message_text:  
+                    # Store user message  
+                    update_user_memory(sender_id, message_text, sender="User")  
+                      
+                    # Get conversation history  
+                    conversation_history = get_conversation_history(sender_id)  
+                    full_message = f"{conversation_history}\nUser: {message_text}"  
+                      
+                    # Generate response  
+                    response = messageHandler.handle_text_message(full_message)  
+                    send_message(sender_id, response)  
+                      
+                    # Store bot's response  
+                    update_user_memory(sender_id, response, sender="Bot")  
+                  
+                else:  
+                    send_message(sender_id, "Sorry, I didn't understand that message.")  
 
-                    elif message_attachments:
-                        try:
-                            attachment = message_attachments[0]
-                            if attachment["type"] == "image":
-                                image_url = attachment["payload"]["url"]
-                                image_response = requests.get(image_url)
-                                image_response.raise_for_status()
-                                image_data = image_response.content
-                                response = messageHandler.handle_attachment(image_data, attachment_type="image")
-                                send_message(sender_id, response)
-                            elif attachment["type"] == "audio":
-                                audio_url = attachment["payload"]["url"]
-                                audio_response = requests.get(audio_url)
-                                audio_response.raise_for_status()
-                                audio_data = audio_response.content
-                                response = messageHandler.handle_attachment(audio_data, attachment_type="audio")
-                                send_message(sender_id, response)
-                        except Exception as e:
-                            logger.error("Error handling attachment: %s", str(e))
-                            send_message(sender_id, "Error processing attachment.")
-                    elif message_text:
-                        # Update user memory
-                        update_user_memory(sender_id, message_text, sender="User")
+return "EVENT_RECEIVED", 200
 
-                        # Get conversation history
-                        conversation_history = get_conversation_history(sender_id)
-                        full_message = f"{conversation_history}\nUser: {message_text}"
-                        
-                        # Generate response
-                        response = messageHandler.handle_text_message(full_message)
-                        send_message(sender_id, response)
-                        update_user_memory(sender_id, response, sender="Bot")
-                    
-                    else:
-                        send_message(sender_id, "Sorry, I didn't understand that message.")
+def send_message(recipient_id, message):
+params = {"access_token": PAGE_ACCESS_TOKEN}
+headers = {"Content-Type": "application/json"}
 
-    return "EVENT_RECEIVED", 200
-
-# Function to send messages (text, image, or audio)
-def send_message(recipient_id, message=None):
-    params = {"access_token": PAGE_ACCESS_TOKEN}
-
-    if isinstance(message, dict):
-        message_type = message.get("type")
-        content = message.get("content")
-
-        if message_type == "image":
-            data = {
-                "recipient": {"id": recipient_id},
-                "message": {
-                    "attachment": {
-                        "type": "image",
-                        "payload": {"attachment_id": content}
-                    }
-                },
-            }
-        elif message_type == "audio":
-            data = {
-                "recipient": {"id": recipient_id},
-                "message": {
-                    "attachment": {
-                        "type": "audio",
-                        "payload": {"attachment_id": content}
-                    }
-                },
-            }
-        elif message_type == "text":
-            messages = split_message(content)
-            for msg in messages:
-                data = {
-                    "recipient": {"id": recipient_id},
-                    "message": {"text": msg},
-                }
-                headers = {"Content-Type": "application/json"}
-                response = requests.post(
-                    f"https://graph.facebook.com/v22.0/me/messages",
-                    params=params,
-                    headers=headers,
-                    json=data
-                )
-                if response.status_code != 200:
-                    try:
-                        logger.error("Failed to send message: %s", response.json())
-                    except Exception:
-                        logger.error("Failed to send message. Status code: %d", response.status_code)
-            return
-        else:
-            logger.error("Unsupported message type: %s", message_type)
-            return 
-    else:
-        if not isinstance(message, str):
-            logger.error("Message content is not a string: %s", message)
-            message = str(message) if message else "An error occurred while processing your request."
-        try:
-            messages = split_message(message.encode("utf-8").decode("utf-8"))
-        except Exception as e:
-            logger.error("Failed to encode message to UTF-8: %s", str(e))
-            messages = ["An error occurred while processing your request."]
-
-        for msg in messages:
-            data = {
-                "recipient": {"id": recipient_id},
-                "message": {"text": msg},
-            }
-            headers = {"Content-Type": "application/json"}
-            response = requests.post(
-                f"https://graph.facebook.com/v22.0/me/messages",
-                params=params,
-                headers=headers,
-                json=data
-            )
-            if response.status_code != 200:
-                try:
-                    logger.error("Failed to send message: %s", response.json())
-                except Exception:
-                    logger.error("Failed to send message. Status code: %d", response.status_code)
-
-    if response.status_code == 200:
-        logger.info("Message sent successfully to user %s", recipient_id)
-    else:
-        try:
-            logger.error("Failed to send message: %s", response.json())
-        except Exception:
-            logger.error("Failed to send message. Status code: %d", response.status_code)
-
-# Test page access token validity
-@app.before_request
-def check_page_access_token():
-    test_url = f"https://graph.facebook.com/me?access_token={PAGE_ACCESS_TOKEN}"
-    response = requests.get(test_url)
-    if response.status_code == 200):
-        logger.info("Page access token is valid.")
-    else:
-        logger.error("Invalid page access token: %s", response.json())
-
-start_time = time.time()
-
-# Expose the start_time so CMD can access it
-def get_bot_uptime():
-    return time.time() - start_time
+if isinstance(message, dict):  
+    message_type = message.get("type")  
+    content = message.get("content")  
+      
+    if message_type == "image":  
+        data = {  
+            "recipient": {"id": recipient_id},  
+            "message": {  
+                "attachment": {  
+                    "type": "image",  
+                    "payload": {"attachment_id": content}  
+                }  
+            }  
+        }  
+    else:  
+        logger.error(f"Unsupported message type: {message_type}")  
+        return  
+else:  
+    if not isinstance(message, str):  
+        message = str(message)  
+      
+    messages = split_message(message)  
+    for msg in messages:  
+        data = {  
+            "recipient": {"id": recipient_id},  
+            "message": {"text": msg}  
+        }  
+          
+        try:  
+            response = requests.post(  
+                "https://graph.facebook.com/v22.0/me/messages",  
+                params=params,  
+                headers=headers,  
+                json=data  
+            )  
+              
+            if response.status_code != 200:  
+                logger.error(f"Failed to send message: {response.text}")  
+        except Exception as e:  
+            logger.error(f"Error sending message: {str(e)}")
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+return render_template('index.html')
 
 @app.route('/api', methods=['GET'])
 def api():
-    query = request.args.get('query')  # Get the query parameter from the URL
-    if not query:
-        return jsonify({"error": "No query provided"}), 400  # Return an error if no query is passed
-    
-    # Pass the query to messageHandler and get the response
-    response = messageHandler.handle_text_message(query)
-    
-    return jsonify(response)  # Return the response as JSON
+query = request.args.get('query')
+if not query:
+return jsonify({"error": "No query provided"}), 400
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=3000)
+response = messageHandler.handle_text_message(query)  
+return jsonify({"response": response})
+
+if name == 'main':
+app.run(debug=True,host='0.0.0.0',port=3000)
+
