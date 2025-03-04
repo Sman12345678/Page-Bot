@@ -1,5 +1,6 @@
 import os
 import logging
+import sqlite3
 from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
 from flask_cors import CORS
@@ -7,7 +8,6 @@ import requests
 import messageHandler  # Import the message handler module
 import time
 from io import BytesIO
-from collections import deque
 
 # Load environment variables
 load_dotenv()
@@ -23,17 +23,41 @@ VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 PREFIX = os.getenv("PREFIX", "/")
 
-user_memory = {}
+# Initialize SQLite database
+conn = sqlite3.connect('user_memory.db', check_same_thread=False)
+c = conn.cursor()
 
-# Function to store the last three messages per user
-def update_user_memory(user_id, message):
-    if user_id not in user_memory:
-        user_memory[user_id] = deque(maxlen=15)
-    user_memory[user_id].append(message)
+# Create table if it doesn't exist
+c.execute('''
+    CREATE TABLE IF NOT EXISTS user_memory (
+        user_id TEXT PRIMARY KEY,
+        messages TEXT
+    )
+''')
+conn.commit()
+
+# Function to store the last 15 messages per user
+def update_user_memory(user_id, message, sender="User"):
+    c.execute('SELECT messages FROM user_memory WHERE user_id = ?', (user_id,))
+    row = c.fetchone()
+    if row:
+        messages = row[0].split('\n')
+        messages.append(f"{sender}: {message}")
+        if len(messages) > 15:
+            messages.pop(0)
+        messages_str = '\n'.join(messages)
+        c.execute('UPDATE user_memory SET messages = ? WHERE user_id = ?', (messages_str, user_id))
+    else:
+        c.execute('INSERT INTO user_memory (user_id, messages) VALUES (?, ?)', (user_id, f"{sender}: {message}"))
+    conn.commit()
 
 # Function to retrieve conversation history for a user
 def get_conversation_history(user_id):
-    return "\n".join(user_memory.get(user_id, []))
+    c.execute('SELECT messages FROM user_memory WHERE user_id = ?', (user_id,))
+    row = c.fetchone()
+    if row:
+        return row[0]
+    return ""
 
 # Function to split long messages
 def split_message(message, limit=2000):
@@ -58,7 +82,6 @@ def upload_image_to_graph(image_data):
         logger.error("Error in upload_image_to_graph: %s", str(e))
         return {"success": False, "error": str(e)}
 
-
 # Function to upload audio to Facebook's Graph API
 def upload_audio_to_graph(audio_data):
     url = f"https://graph.facebook.com/v22.0/me/message_attachments"
@@ -68,7 +91,7 @@ def upload_audio_to_graph(audio_data):
 
     try:
         response = requests.post(url, params=params, files=files, data=data)
-        if response.status_code == 200:
+        if response.status_code == 200):
             result = response.json()
             return {"success": True, "attachment_id": result.get("attachment_id")}
         else:
@@ -77,7 +100,6 @@ def upload_audio_to_graph(audio_data):
     except Exception as e:
         logger.error("Error in upload_audio_to_graph: %s", str(e))
         return {"success": False, "error": str(e)}
-
 
 # Verification endpoint for Facebook webhook
 @app.route('/webhook', methods=['GET'])
@@ -88,7 +110,6 @@ def verify():
         return request.args.get("hub.challenge", "")
     logger.error("Webhook verification failed: invalid verify token.")
     return "Verification failed", 403
-
 
 # Main webhook endpoint to handle messages
 @app.route('/webhook', methods=['POST'])
@@ -150,17 +171,17 @@ def webhook():
 
                         # Get conversation history
                         conversation_history = get_conversation_history(sender_id)
-                        full_message = f"Conversation so far:\n{conversation_history}\n\nUser: {message_text}"
+                        full_message = f"{conversation_history}\nUser: {message_text}"
                         
                         # Generate response
                         response = messageHandler.handle_text_message(full_message)
                         send_message(sender_id, response)
+                        update_user_memory(sender_id, response, sender="Bot")
                     
                     else:
                         send_message(sender_id, "Sorry, I didn't understand that message.")
 
     return "EVENT_RECEIVED", 200
-
 
 # Function to send messages (text, image, or audio)
 def send_message(recipient_id, message=None):
@@ -249,7 +270,6 @@ def send_message(recipient_id, message=None):
         except Exception:
             logger.error("Failed to send message. Status code: %d", response.status_code)
 
-
 # Test page access token validity
 @app.before_request
 def check_page_access_token():
@@ -260,9 +280,7 @@ def check_page_access_token():
     else:
         logger.error("Invalid page access token: %s", response.json())
 
-
 start_time = time.time()
-
 
 # Expose the start_time so CMD can access it
 def get_bot_uptime():
