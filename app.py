@@ -72,7 +72,7 @@ def upload_image_to_graph(image_data):
 
     try:
         response = requests.post(url, params=params, files=files, data=data)
-        if response.status_code == 200:
+        if response.status_code == 200):
             result = response.json()
             return {"success": True, "attachment_id": result.get("attachment_id")}
         else:
@@ -167,7 +167,7 @@ def webhook():
                             send_message(sender_id, "Error processing attachment.")
                     elif message_text:
                         # Update user memory
-                        update_user_memory(sender_id, message_text)
+                        update_user_memory(sender_id, message_text, sender="User")
 
                         # Get conversation history
                         conversation_history = get_conversation_history(sender_id)
@@ -275,7 +275,7 @@ def send_message(recipient_id, message=None):
 def check_page_access_token():
     test_url = f"https://graph.facebook.com/me?access_token={PAGE_ACCESS_TOKEN}"
     response = requests.get(test_url)
-    if response.status_code == 200:
+    if response.status_code == 200):
         logger.info("Page access token is valid.")
     else:
         logger.error("Invalid page access token: %s", response.json())
