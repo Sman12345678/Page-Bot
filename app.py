@@ -193,8 +193,7 @@ def webhook():
                                     
                                     response = messageHandler.handle_attachment(  
                                         image_data,  
-                                        attachment_type="image",  
-                                        user_id=sender_id  
+                                        attachment_type="image"  
                                     )  
                                     send_message(sender_id, response)  
                                     
