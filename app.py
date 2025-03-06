@@ -287,5 +287,13 @@ def api():
     response = messageHandler.handle_text_message(query)  
     return jsonify({"response": response})
 
+start_time = time.time()
+
+
+# Expose the start_time so CMD can access it
+def get_bot_uptime():
+    return time.time() - start_time
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=3000)
