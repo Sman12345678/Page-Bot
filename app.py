@@ -77,7 +77,7 @@ def update_user_memory(user_id, message, sender="User", message_type="text", met
         logger.error(f"Database error: {str(e)}")  
         conn.rollback()
 
-def get_conversation_history(user_id, limit=10):
+def get_conversation_history(user_id, limit=50):
     c = conn.cursor()
     try:
         # Get recent conversation history
