@@ -1,8 +1,10 @@
-#Please Do Not Misuse or Abuse API Key
+# Please Do Not Misuse or Abuse API Key
 import requests
-Info={
-    "Description":"Perform Google Search"
+
+Info = {
+    "Description": "Perform Google Search"
 }
+
 def execute(message):
     """
     Perform a Google search using the provided message text 
@@ -13,12 +15,13 @@ def execute(message):
         num_results (int): Number of results to fetch.
 
     Returns:
-        list: A list of dictionaries containing 'title', 'link', and 'description'.
+        str: A formatted string containing the search results.
+    ──────────────
     """
 
     if not message:
-        return [{"error": "❌ You Didn't Include A Search Query"}]
-
+        return "❌ You Didn't Include A Search Query"
+    
     api_key = "AIzaSyAqBaaYWktE14aDwDE8prVIbCH88zni12E"  # Your API key
     cx = "7514b16a62add47ae"  # Your Custom Search Engine ID
     url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={cx}&q={message}&num=5"
@@ -26,16 +29,20 @@ def execute(message):
     response = requests.get(url)
     
     if response.status_code != 200:
-        return [{"error": "Failed to fetch search results"}]
+        return "Failed to fetch search results"
     
     search_results = response.json().get('items', [])
     results = []
-    
+
+    results.append("────────────")
     for item in search_results:
         title = item.get('title', 'No title')
         link = item.get('link', 'No link')
         description = item.get('snippet', 'No description')
-        
-        results.append({"⚒️Title": title,"\n" "📎Link": link, "\n" "📋Description": description})
+
+        results.append(f"⟢ ⚒️Title ⟣: {title}")
+        results.append(f"⟢ 📎Link ⟣: {link}")
+        results.append(f"⟢ 📋Description ⟣: {description}")
+        results.append("────────────")
     
-    return results
+    return "\n".join(results)
