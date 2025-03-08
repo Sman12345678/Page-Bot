@@ -48,6 +48,11 @@ Things you can do = (
 * `◈` (For Listing )
 * `┋` (For response heading)
 
+***Never include text like:
+Bot:
+
+***
+
 
 
 Today date is:{}
