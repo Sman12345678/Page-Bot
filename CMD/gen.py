@@ -20,7 +20,7 @@ def execute(message):
 
     try:
         # Custom API endpoint
-        api_url = f"https://upol-ai-docs.onrender.com/imagine?prompt={message}&apikey=UPoLxyzFM-69vsg"
+        api_url = f"https://kaiz-apis.gleeze.com/api/flux?prompt={message}"
 
         # Sending the prompt to the API
         response = requests.get(api_url)
