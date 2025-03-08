@@ -1,4 +1,4 @@
-import os
+noimport os
 import google.generativeai as genai
 import importlib
 from dotenv import load_dotenv
@@ -46,10 +46,12 @@ Things you can do = (
 
  use:  * `──────────────` (Horizontal lines for section separation)
 * `◈` (For Listing )
-* `┋` (For response heading)
 
-***Never include text like:
+
+***Important***
+Do not initiate your response with:(
 Bot:
+)
 
 ***
 
