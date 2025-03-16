@@ -65,4 +65,4 @@ def execute(message):
                 "data": f"🚨 Failed to fetch image {i + 1}: {str(e)}"
             })
 
-    return images if images else {"success": False, "type": "text", "data": "❌ Failed to fetch any ▋
+    return images if images else {"success": False, "type": "text", "data": "❌ Failed to fetch any image"}
