@@ -154,33 +154,47 @@ def webhook():
                     message_text = event["message"].get("text")  
                     message_attachments = event["message"].get("attachments")  
 
-                    if message_text and message_text.startswith(PREFIX):  
-                        # Handle commands  
-                        command_parts = message_text[len(PREFIX):].split(maxsplit=1)  
-                        command_name = command_parts[0]  
-                        message = command_parts[1] if len(command_parts) > 1 else ""  
-                        
-                        response = messageHandler.handle_text_command(command_name, message)  
-                        if isinstance(response, dict) and response.get("success"):  
-                            if isinstance(response["data"], BytesIO):  
-                                upload_response = upload_image_to_graph(response["data"])  
-                                if upload_response.get("success"):  
-                                    send_message(sender_id, {"type": "image", "content": upload_response["attachment_id"]})  
-                                else:  
-                                    send_message(sender_id, "Failed to upload the image.")  
-                            else:  
-                                send_message(sender_id, response["data"])  
-                        else:  
-                            send_message(sender_id, response)  
+                    if isinstance(message_text, bytes):
+                        try:
+                            image_data = BytesIO(message_text)
+                            upload_response = upload_image_to_graph(image_data)
+                            if upload_response.get("success"):
+                                attachment_id = upload_response["attachment_id"]
+                                send_message(sender_id, {"type": "image", "content": attachment_id})
+                            else:
+                                send_message(sender_id, "Failed to upload the image.")
+                        except Exception as e:
+                            logger.error(f"Error handling byte message: {str(e)}")
+                            send_message(sender_id, "Error processing byte message.")
+                        return "EVENT_RECEIVED", 200
 
-                    elif message_attachments:  
-                        for attachment in message_attachments:  
-                            try:  
-                                if attachment["type"] == "image":  
-                                    image_url = attachment["payload"]["url"]  
-                                    image_response = requests.get(image_url)  
-                                    image_response.raise_for_status()  
-                                    image_data = image_response.content  
+                    if message_text and message_text.startswith(PREFIX):
+                        # Handle commands
+                        command_parts = message_text[len(PREFIX):].split(maxsplit=1)
+                        command_name = command_parts[0]
+                        message = command_parts[1] if len(command_parts) > 1 else ""
+
+                        response = messageHandler.handle_text_command(command_name, message)
+                        if isinstance(response, dict) and response.get("success"):
+                            if isinstance(response["data"], BytesIO):
+                                upload_response = upload_image_to_graph(response["data"])
+                                if upload_response.get("success"):
+                                    send_message(sender_id, {"type": "image", "content": upload_response["attachment_id"]})
+                                else:
+                                    send_message(sender_id, "Failed to upload the image.")
+                            else:
+                                send_message(sender_id, response["data"])
+                        else:
+                            send_message(sender_id, response)
+
+                    elif message_attachments:
+                        for attachment in message_attachments:
+                            try:
+                                if attachment["type"] == "image":
+                                    image_url = attachment["payload"]["url"]
+                                    image_response = requests.get(image_url)
+                                    image_response.raise_for_status()
+                                    image_data = image_response.content
                                     
                                     # Store the image interaction in memory  
                                     update_user_memory(  
@@ -219,10 +233,20 @@ def webhook():
                         
                         # Generate response  
                         response = messageHandler.handle_text_message(full_message)  
-                        send_message(sender_id, response)  
                         
-                        # Store bot's response  
-                        update_user_memory(sender_id, response, sender="Bot")  
+                        # Check if the response contains image bytes
+                        if isinstance(response, dict) and response.get("image_data"):
+                            image_data = response["image_data"]
+                            upload_response = upload_image_to_graph(image_data)
+                            if upload_response.get("success"):
+                                send_message(sender_id, {"type": "image", "content": upload_response["attachment_id"]})
+                            else:
+                                send_message(sender_id, "Failed to upload the image.")
+                        else:
+                            send_message(sender_id, response)
+
+                        # Store bot's response
+                        update_user_memory(sender_id, response, sender="Bot")
 
                     else:  
                         send_message(sender_id, "Sorry, I didn't understand that message.")  
