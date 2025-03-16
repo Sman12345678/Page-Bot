@@ -175,7 +175,17 @@ def webhook():
                         message = command_parts[1] if len(command_parts) > 1 else ""
 
                         response = messageHandler.handle_text_command(command_name, message)
-                        if isinstance(response, dict) and response.get("success"):
+                        if isinstance(response, list):
+                            for res in response:
+                                if isinstance(res, dict) and res.get("success") and isinstance(res.get("data"), BytesIO):
+                                    upload_response = upload_image_to_graph(res["data"])
+                                    if upload_response.get("success"):
+                                        send_message(sender_id, {"type": "image", "content": upload_response["attachment_id"]})
+                                    else:
+                                        send_message(sender_id, "Failed to upload the image.")
+                                else:
+                                    send_message(sender_id, res.get("data"))
+                        elif isinstance(response, dict) and response.get("success"):
                             if isinstance(response["data"], BytesIO):
                                 upload_response = upload_image_to_graph(response["data"])
                                 if upload_response.get("success"):
