@@ -10,16 +10,18 @@ import time
 from io import BytesIO
 import json
 import traceback
+from datetime import datetime, timezone
 
 # Load environment variables
 load_dotenv()
 
+# Initialize Flask app
 app = Flask(__name__)
 CORS(app)
 
 # Enhanced logging configuration
 logging.basicConfig(
-    level=logging.DEBUG,  # Changed to DEBUG for more detailed logs
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
     handlers=[
         logging.FileHandler('app_debug.log'),
@@ -28,313 +30,366 @@ logging.basicConfig(
 )
 logger = logging.getLogger()
 
+# Configuration
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 PREFIX = os.getenv("PREFIX", "/")
+API_VERSION = "v17.0"
+INITIALIZED = False
+start_time = time.time()
 
-# Initialize SQLite database with improved schema
+class FacebookAPIError(Exception):
+    """Custom exception for Facebook API errors"""
+    pass
+
+def get_current_time():
+    """Get current UTC time in YYYY-MM-DD HH:MM:SS format"""
+    return datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+
+def validate_environment():
+    """Validate required environment variables and API access"""
+    if not PAGE_ACCESS_TOKEN:
+        raise ValueError("PAGE_ACCESS_TOKEN must be set")
+    if not VERIFY_TOKEN:
+        raise ValueError("VERIFY_TOKEN must be set")
+
+    try:
+        verify_url = f"https://graph.facebook.com/{API_VERSION}/me"
+        response = requests.get(verify_url, params={"access_token": PAGE_ACCESS_TOKEN})
+        if response.status_code != 200:
+            raise FacebookAPIError(f"Invalid PAGE_ACCESS_TOKEN: {response.text}")
+        logger.info("Facebook API token validated successfully")
+    except Exception as e:
+        logger.error(f"Failed to validate Facebook API token: {str(e)}")
+        raise
+
 def init_db():
-    conn = sqlite3.connect('bot_memory.db', check_same_thread=False)
-    c = conn.cursor()
+    """Initialize SQLite database with improved schema"""
+    try:
+        conn = sqlite3.connect('bot_memory.db', check_same_thread=False)
+        c = conn.cursor()
+        
+        # Create tables
+        c.execute('''CREATE TABLE IF NOT EXISTS conversations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            message TEXT NOT NULL,
+            sender TEXT NOT NULL,
+            message_type TEXT DEFAULT 'text',
+            metadata TEXT
+        )''')
+        
+        c.execute('''CREATE TABLE IF NOT EXISTS user_context (
+            user_id TEXT PRIMARY KEY,
+            last_interaction DATETIME,
+            conversation_state TEXT,
+            user_preferences TEXT
+        )''')
+        
+        c.execute('''CREATE TABLE IF NOT EXISTS message_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            sender_id TEXT,
+            message_type TEXT,
+            status TEXT,
+            error_message TEXT,
+            metadata TEXT
+        )''')
+        
+        conn.commit()
+        logger.info("Database initialized successfully")
+        return conn
+    except Exception as e:
+        logger.error(f"Database initialization failed: {str(e)}")
+        raise
 
-    # Create tables with improved schema  
-    c.execute('''  
-        CREATE TABLE IF NOT EXISTS conversations (  
-            id INTEGER PRIMARY KEY AUTOINCREMENT,  
-            user_id TEXT NOT NULL,  
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,  
-            message TEXT NOT NULL,  
-            sender TEXT NOT NULL,  
-            message_type TEXT DEFAULT 'text',  
-            metadata TEXT  
-        )  
-    ''')  
-
-    c.execute('''  
-        CREATE TABLE IF NOT EXISTS user_context (  
-            user_id TEXT PRIMARY KEY,  
-            last_interaction DATETIME,  
-            conversation_state TEXT,  
-            user_preferences TEXT  
-        )  
-    ''')  
-
-    conn.commit()  
-    return conn
-
-conn = init_db()
+def log_message_status(sender_id, message_type, status, error_message=None, metadata=None):
+    """Log message status to database"""
+    try:
+        c = conn.cursor()
+        c.execute('''INSERT INTO message_logs 
+                    (sender_id, message_type, status, error_message, metadata)
+                    VALUES (?, ?, ?, ?, ?)''',
+                 (sender_id, message_type, status, error_message, 
+                  json.dumps(metadata) if metadata else None))
+        conn.commit()
+    except Exception as e:
+        logger.error(f"Failed to log message status: {str(e)}")
 
 def upload_image_to_graph(image_data):
-    """Enhanced image upload function with detailed logging"""
-    url = f"https://graph.facebook.com/v22.0/me/message_attachments"
+    """Upload image to Facebook Graph API"""
+    url = f"https://graph.facebook.com/{API_VERSION}/me/message_attachments"
     params = {"access_token": PAGE_ACCESS_TOKEN}
     
-    logger.debug(f"Preparing to upload image to Facebook Graph API")
-    logger.debug(f"Image data type: {type(image_data)}")
+    logger.debug("=== START IMAGE UPLOAD ===")
     
     try:
-        if isinstance(image_data, BytesIO):
-            image_data.seek(0)  # Reset pointer to start of file
-            files = {"filedata": ("image.jpg", image_data, "image/jpeg")}
-        else:
+        if not isinstance(image_data, BytesIO):
             logger.error(f"Invalid image_data type: {type(image_data)}")
             return {"success": False, "error": "Invalid image data type"}
 
+        image_data.seek(0)
+        files = {"filedata": ("image.jpg", image_data, "image/jpeg")}
         data = {"message": '{"attachment":{"type":"image", "payload":{}}}'}
         
-        logger.debug("Sending request to Facebook Graph API")
+        logger.debug("Sending image upload request to Facebook")
         response = requests.post(url, params=params, files=files, data=data)
-        logger.debug(f"Facebook Graph API Response Status: {response.status_code}")
-        logger.debug(f"Facebook Graph API Response Content: {response.text}")
+        response_json = response.json()
         
-        if response.status_code == 200:
-            result = response.json()
-            logger.info(f"Successfully uploaded image, got attachment_id: {result.get('attachment_id')}")
-            return {"success": True, "attachment_id": result.get("attachment_id")}
+        logger.debug(f"Upload response status: {response.status_code}")
+        logger.debug(f"Upload response content: {json.dumps(response_json, indent=2)}")
+        
+        if response.status_code == 200 and "attachment_id" in response_json:
+            logger.info(f"Image upload successful. Attachment ID: {response_json['attachment_id']}")
+            return {"success": True, "attachment_id": response_json["attachment_id"]}
         else:
-            logger.error(f"Failed to upload image. Status: {response.status_code}, Response: {response.text}")
-            return {"success": False, "error": response.text}
+            logger.error(f"Image upload failed. Response: {response.text}")
+            return {"success": False, "error": response_json.get("error", {}).get("message", "Unknown error")}
+            
     except Exception as e:
         logger.error(f"Error in upload_image_to_graph: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         return {"success": False, "error": str(e)}
+    finally:
+        logger.debug("=== END IMAGE UPLOAD ===")
 
 def send_message(recipient_id, message):
-    """Enhanced message sending function with detailed logging"""
+    """Send message to Facebook Messenger"""
+    api_url = f"https://graph.facebook.com/{API_VERSION}/me/messages"
     params = {"access_token": PAGE_ACCESS_TOKEN}
     headers = {"Content-Type": "application/json"}
     
-    logger.debug(f"Preparing to send message to recipient {recipient_id}")
+    logger.debug(f"=== START SEND MESSAGE ===")
+    logger.debug(f"Recipient ID: {recipient_id}")
     logger.debug(f"Message type: {type(message)}")
     logger.debug(f"Message content: {message}")
-
+    
     try:
         if isinstance(message, dict):
-            message_type = message.get("type")
-            content = message.get("content")
-            
-            logger.debug(f"Processing structured message of type: {message_type}")
-            
-            if message_type == "image":
+            if message.get("type") == "image":
                 data = {
                     "recipient": {"id": recipient_id},
                     "message": {
                         "attachment": {
                             "type": "image",
-                            "payload": {"attachment_id": content}
+                            "payload": {
+                                "attachment_id": message["content"]
+                            }
                         }
                     }
                 }
-                logger.debug(f"Prepared image message with attachment_id: {content}")
+                message_type = "image"
+                logger.debug(f"Prepared image message with attachment_id: {message['content']}")
             else:
-                logger.error(f"Unsupported message type: {message_type}")
-                return
+                logger.error(f"Unsupported message type: {message.get('type')}")
+                return False
         else:
             if not isinstance(message, str):
                 message = str(message)
             
-            messages = split_message(message)
-            for msg in messages:
-                data = {
-                    "recipient": {"id": recipient_id},
-                    "message": {"text": msg}
-                }
-                
-                logger.debug(f"Sending text message: {msg[:100]}...")
-                
-                try:
-                    response = requests.post(
-                        "https://graph.facebook.com/v22.0/me/messages",
-                        params=params,
-                        headers=headers,
-                        json=data
-                    )
-                    
-                    logger.debug(f"Facebook API Response Status: {response.status_code}")
-                    logger.debug(f"Facebook API Response Content: {response.text}")
-                    
-                    if response.status_code != 200:
-                        logger.error(f"Failed to send message: {response.text}")
-                        
-                except Exception as e:
-                    logger.error(f"Error sending message part: {str(e)}")
-                    logger.error(f"Traceback: {traceback.format_exc()}")
-            return
+            data = {
+                "recipient": {"id": recipient_id},
+                "message": {"text": message}
+            }
+            message_type = "text"
+            logger.debug("Prepared text message")
 
-        # Send the message
-        response = requests.post(
-            "https://graph.facebook.com/v22.0/me/messages",
-            params=params,
-            headers=headers,
-            json=data
-        )
+        logger.debug(f"Sending request to Facebook API: {json.dumps(data, indent=2)}")
+        
+        response = requests.post(api_url, params=params, headers=headers, json=data)
+        response_json = response.json() if response.text else {}
         
         logger.debug(f"Facebook API Response Status: {response.status_code}")
-        logger.debug(f"Facebook API Response Content: {response.text}")
-        
-        if response.status_code != 200:
-            logger.error(f"Failed to send message: {response.text}")
+        logger.debug(f"Facebook API Response: {json.dumps(response_json, indent=2)}")
+
+        if response.status_code == 200:
+            log_message_status(recipient_id, message_type, "success", metadata=response_json)
+            logger.info(f"Successfully sent {message_type} message to {recipient_id}")
+            return True
+        else:
+            error_msg = response_json.get("error", {}).get("message", "Unknown error")
+            log_message_status(recipient_id, message_type, "failed", error_msg, response_json)
+            logger.error(f"Failed to send message: {error_msg}")
             
+            # Try to send error message if original message fails
+            if message_type == "image":
+                try:
+                    error_data = {
+                        "recipient": {"id": recipient_id},
+                        "message": {"text": f"Failed to send image: {error_msg}"}
+                    }
+                    requests.post(api_url, params=params, headers=headers, json=error_data)
+                except:
+                    pass
+            return False
+
     except Exception as e:
-        logger.error(f"Error in send_message: {str(e)}")
+        error_msg = str(e)
+        log_message_status(recipient_id, "error", error_msg)
+        logger.error(f"Error in send_message: {error_msg}")
         logger.error(f"Traceback: {traceback.format_exc()}")
+        return False
+    finally:
+        logger.debug("=== END SEND MESSAGE ===")
+
+def process_command_response(sender_id, response):
+    """Process command response and send appropriate message"""
+    logger.debug(f"=== START PROCESS COMMAND RESPONSE ===")
+    logger.debug(f"Sender ID: {sender_id}")
+    logger.debug(f"Response type: {type(response)}")
+    logger.debug(f"Response content: {response}")
+    
+    try:
+        if isinstance(response, dict):
+            if response.get("success"):
+                if response.get("type") == "image" and isinstance(response.get("data"), BytesIO):
+                    logger.debug("Processing image response")
+                    upload_response = upload_image_to_graph(response["data"])
+                    logger.debug(f"Upload response: {upload_response}")
+                    
+                    if upload_response.get("success"):
+                        message_data = {
+                            "type": "image",
+                            "content": upload_response["attachment_id"]
+                        }
+                        logger.debug(f"Sending image message with data: {message_data}")
+                        
+                        if send_message(sender_id, message_data):
+                            logger.info(f"Successfully sent image message to {sender_id}")
+                        else:
+                            logger.error(f"Failed to send image message to {sender_id}")
+                            send_message(sender_id, "Failed to send image")
+                    else:
+                        error_msg = f"Failed to upload image: {upload_response.get('error')}"
+                        logger.error(error_msg)
+                        send_message(sender_id, error_msg)
+                else:
+                    send_message(sender_id, response.get("data", "No data provided"))
+            else:
+                send_message(sender_id, response.get("data", "Command failed"))
+        else:
+            send_message(sender_id, str(response))
+
+    except Exception as e:
+        logger.error(f"Error processing command response: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        send_message(sender_id, "Error processing command response")
+    finally:
+        logger.debug("=== END PROCESS COMMAND RESPONSE ===")
+
+def handle_command_message(sender_id, message_text):
+    """Handle command messages"""
+    command_parts = message_text[len(PREFIX):].split(maxsplit=1)
+    command_name = command_parts[0]
+    command_args = command_parts[1] if len(command_parts) > 1 else ""
+
+    logger.debug(f"Processing command: {command_name} with args: {command_args}")
+
+    try:
+        response = messageHandler.handle_text_command(command_name, command_args)
+        
+        if isinstance(response, list):
+            for item in response:
+                process_command_response(sender_id, item)
+        else:
+            process_command_response(sender_id, response)
+
+    except Exception as e:
+        logger.error(f"Error handling command: {str(e)}")
+        send_message(sender_id, f"Error processing command: {str(e)}")
+
+@app.route('/webhook', methods=['GET'])
+def verify():
+    """Verify webhook setup"""
+    token_sent = request.args.get("hub.verify_token")
+    if token_sent == VERIFY_TOKEN:
+        return request.args.get("hub.challenge", "")
+    return "Verification failed", 403
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    data = request.get_json()
-    logger.info("Received webhook data: %s", json.dumps(data, indent=2))
+    """Handle incoming webhook events"""
+    try:
+        data = request.get_json()
+        logger.debug(f"Received webhook data: {json.dumps(data, indent=2)}")
 
-    if data.get("object") == "page":
+        if data.get("object") != "page":
+            logger.warning("Received non-page object in webhook")
+            return "Not a page object", 404
+
         for entry in data["entry"]:
             for event in entry.get("messaging", []):
-                if "message" in event:
-                    sender_id = event["sender"]["id"]
-                    message_text = event["message"].get("text")
-                    message_attachments = event["message"].get("attachments")
-
-                    logger.debug(f"Processing message from sender {sender_id}")
-                    logger.debug(f"Message text: {message_text}")
-                    logger.debug(f"Message attachments: {message_attachments}")
-
-                    if isinstance(message_text, bytes):
-                        try:
-                            logger.debug("Processing byte message as image")
-                            image_data = BytesIO(message_text)
-                            upload_response = upload_image_to_graph(image_data)
-                            logger.debug(f"Upload response: {upload_response}")
-                            
-                            if upload_response.get("success"):
-                                attachment_id = upload_response["attachment_id"]
-                                send_message(sender_id, {"type": "image", "content": attachment_id})
-                            else:
-                                send_message(sender_id, "Failed to upload the image.")
-                        except Exception as e:
-                            logger.error(f"Error handling byte message: {str(e)}")
-                            logger.error(f"Traceback: {traceback.format_exc()}")
-                            send_message(sender_id, "Error processing byte message.")
-                        return "EVENT_RECEIVED", 200
-
-                    if message_text and message_text.startswith(PREFIX):
-                        logger.debug(f"Processing command message: {message_text}")
-                        command_parts = message_text[len(PREFIX):].split(maxsplit=1)
-                        command_name = command_parts[0]
-                        message = command_parts[1] if len(command_parts) > 1 else ""
-
-                        logger.debug(f"Command name: {command_name}")
-                        logger.debug(f"Command message: {message}")
-
-                        response = messageHandler.handle_text_command(command_name, message)
-                        logger.debug(f"Command response type: {type(response)}")
-                        logger.debug(f"Command response content: {response}")
-
-                        if isinstance(response, list):
-                            logger.debug(f"Processing list response with {len(response)} items")
-                            for res in response:
-                                logger.debug(f"Processing response item: {res}")
-                                if isinstance(res, dict):
-                                    logger.debug(f"Response item keys: {res.keys()}")
-                                    logger.debug(f"Response item success: {res.get('success')}")
-                                    logger.debug(f"Response item type: {res.get('type')}")
-                                    
-                                    if res.get("success") and res.get("type") == "image" and isinstance(res.get("data"), BytesIO):
-                                        logger.debug("Processing image response")
-                                        upload_response = upload_image_to_graph(res["data"])
-                                        logger.debug(f"Upload response: {upload_response}")
-                                        
-                                        if upload_response.get("success"):
-                                            send_message(sender_id, {
-                                                "type": "image",
-                                                "content": upload_response["attachment_id"]
-                                            })
-                                        else:
-                                            send_message(sender_id, "Failed to upload the image.")
-                                    else:
-                                        send_message(sender_id, res.get("data", "Unknown response"))
-                        elif isinstance(response, dict) and response.get("success"):
-                            logger.debug("Processing single dict response")
-                            if isinstance(response.get("data"), BytesIO):
-                                upload_response = upload_image_to_graph(response["data"])
-                                logger.debug(f"Upload response: {upload_response}")
-                                
-                                if upload_response.get("success"):
-                                    send_message(sender_id, {
-                                        "type": "image",
-                                        "content": upload_response["attachment_id"]
-                                    })
-                                else:
-                                    send_message(sender_id, "Failed to upload the image.")
-                            else:
-                                send_message(sender_id, response["data"])
-                        else:
-                            logger.debug("Processing simple response")
-                            send_message(sender_id, response)
-
-    return "EVENT_RECEIVED", 200
-def send_message(recipient_id, message):
-    params = {"access_token": PAGE_ACCESS_TOKEN}
-    headers = {"Content-Type": "application/json"}
-
-    if isinstance(message, dict):  
-        message_type = message.get("type")  
-        content = message.get("content")  
-        
-        if message_type == "image":  
-            data = {  
-                "recipient": {"id": recipient_id},  
-                "message": {  
-                    "attachment": {  
-                        "type": "image",  
-                        "payload": {"attachment_id": content}  
-                    }  
-                }  
-            }  
-        else:  
-            logger.error(f"Unsupported message type: {message_type}")  
-            return  
-    else:  
-        if not isinstance(message, str):  
-            message = str(message)  
-        
-        messages = split_message(message)  
-        for msg in messages:  
-            data = {  
-                "recipient": {"id": recipient_id},  
-                "message": {"text": msg}  
-            }  
-            
-            try:  
-                response = requests.post(  
-                    "https://graph.facebook.com/v22.0/me/messages",  
-                    params=params,  
-                    headers=headers,  
-                    json=data  
-                )  
+                sender_id = event["sender"]["id"]
                 
-                if response.status_code != 200:  
-                    logger.error(f"Failed to send message: {response.text}")  
-            except Exception as e:  
-                logger.error(f"Error sending message: {str(e)}")
+                if "message" in event:
+                    message = event["message"]
+                    message_text = message.get("text", "")
+                    attachments = message.get("attachments", [])
+
+                    logger.debug(f"Processing message from {sender_id}: {message_text}")
+
+                    try:
+                        if message_text.startswith(PREFIX):
+                            handle_command_message(sender_id, message_text)
+                        elif attachments:
+                            for attachment in attachments:
+                                if attachment["type"] == "image":
+                                    image_url = attachment["payload"]["url"]
+                                    try:
+                                        response = requests.get(image_url)
+                                        image_data = BytesIO(response.content)
+                                        result = messageHandler.handle_attachment(image_data, "image")
+                                        send_message(sender_id, result)
+                                    except Exception as e:
+                                        logger.error(f"Error processing image: {str(e)}")
+                                        send_message(sender_id, "Error processing image")
+                        elif message_text:
+                            response = messageHandler.handle_text_message(message_text)
+                            send_message(sender_id, response)
+                    except Exception as e:
+                        logger.error(f"Error processing message: {str(e)}")
+                        send_message(sender_id, "Sorry, I encountered an error processing your message.")
+
+        return "EVENT_RECEIVED", 200
+
+    except Exception as e:
+        logger.error(f"Error in webhook: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return "Internal error", 500
 
 @app.route('/')
 def home():
+    """Render home page"""
     return render_template('index.html')
 
 @app.route('/api', methods=['GET'])
 def api():
+    """Handle API requests"""
     query = request.args.get('query')
     if not query:
         return jsonify({"error": "No query provided"}), 400
 
-    response = messageHandler.handle_text_message(query)  
-    return jsonify({"response": response})
+    try:
+        response = messageHandler.handle_text_message(query)
+        return jsonify({"response": response})
+    except Exception as e:
+        logger.error(f"API error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
-start_time = time.time()
-
-
-# Expose the start_time so CMD can access it
 def get_bot_uptime():
+    """Get bot uptime"""
     return time.time() - start_time
 
+# Initialize the application
+try:
+    validate_environment()
+    conn = init_db()
+    INITIALIZED = True
+    logger.info("Application initialized successfully")
+except Exception as e:
+    logger.critical(f"Failed to initialize application: {str(e)}")
+    raise
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=3000)
+    app.run(debug=True, host='0.0.
