@@ -54,7 +54,7 @@ def execute(message):
             images.append({
                 "success": True,
                 "type": "image",
-                "image_data": BytesIO(img_response.content)
+                "data": BytesIO(img_response.content)  # Changed from image_data to data
             })
             logging.info(f"Image {i + 1} fetched successfully from: {src}")
         except requests.exceptions.RequestException as e:
