@@ -34,7 +34,7 @@ logger = logging.getLogger()
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 PREFIX = os.getenv("PREFIX", "/")
-API_VERSION = "v17.0"
+API_VERSION = "v22.0"
 INITIALIZED = False
 start_time = time.time()
 
