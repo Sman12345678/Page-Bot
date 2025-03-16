@@ -36,7 +36,30 @@ PREFIX = os.getenv("PREFIX", "/")
 def init_db():
     conn = sqlite3.connect('bot_memory.db', check_same_thread=False)
     c = conn.cursor()
-    # ... [rest of init_db remains the same]
+
+    # Create tables with improved schema  
+    c.execute('''  
+        CREATE TABLE IF NOT EXISTS conversations (  
+            id INTEGER PRIMARY KEY AUTOINCREMENT,  
+            user_id TEXT NOT NULL,  
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,  
+            message TEXT NOT NULL,  
+            sender TEXT NOT NULL,  
+            message_type TEXT DEFAULT 'text',  
+            metadata TEXT  
+        )  
+    ''')  
+
+    c.execute('''  
+        CREATE TABLE IF NOT EXISTS user_context (  
+            user_id TEXT PRIMARY KEY,  
+            last_interaction DATETIME,  
+            conversation_state TEXT,  
+            user_preferences TEXT  
+        )  
+    ''')  
+
+    conn.commit()  
     return conn
 
 conn = init_db()
