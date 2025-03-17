@@ -134,6 +134,52 @@ def get_conversation_history(user_id, limit=10):
     except Exception as e:
         logger.error(f"Failed to get conversation history: {str(e)}")
         return []
+def send_message(recipient_id, message_content):
+    """Send message to Facebook Messenger
+    
+    Args:
+        recipient_id (str): Facebook user ID to send message to
+        message_content (str or dict): Message content to send. Can be string for text messages
+                                     or dict for structured messages (images, etc)
+    
+    Returns:
+        bool: True if message was sent successfully, False otherwise
+    """
+    try:
+        message_data = {
+            "recipient": {"id": recipient_id},
+            "messaging_type": "RESPONSE"
+        }
+
+        if isinstance(message_content, str):
+            message_data["message"] = {"text": message_content}
+        elif isinstance(message_content, dict):
+            if message_content.get("type") == "image":
+                message_data["message"] = {
+                    "attachment": {
+                        "type": "image",
+                        "payload": {
+                            "attachment_id": message_content["content"]
+                        }
+                    }
+                }
+            else:
+                message_data["message"] = message_content
+
+        url = f"https://graph.facebook.com/{API_VERSION}/me/messages"
+        params = {"access_token": PAGE_ACCESS_TOKEN}
+        
+        response = requests.post(url, params=params, json=message_data)
+        
+        if response.status_code != 200:
+            logger.error(f"Failed to send message: {response.text}")
+            return False
+            
+        return True
+    except Exception as e:
+        logger.error(f"Error sending message: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return False
 
 def process_command_response(sender_id, response):
     """Process command response and send appropriate message"""
