@@ -69,20 +69,33 @@ def init_db():
         conn = sqlite3.connect('bot_memory.db', check_same_thread=False)
         c = conn.cursor()
         
-        # Create tables with improved schema
+        # Create tables
         c.execute('''CREATE TABLE IF NOT EXISTS conversations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id TEXT NOT NULL,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             message TEXT NOT NULL,
             sender TEXT NOT NULL,
-            message_type TEXT NOT NULL,
-            metadata TEXT,
-            is_bot_response BOOLEAN DEFAULT 0
+            message_type TEXT DEFAULT 'text',
+            metadata TEXT
         )''')
         
-        c.execute('''CREATE INDEX IF NOT EXISTS idx_conversations_user_time 
-                    ON conversations(user_id, timestamp DESC)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS user_context (
+            user_id TEXT PRIMARY KEY,
+            last_interaction DATETIME,
+            conversation_state TEXT,
+            user_preferences TEXT
+        )''')
+        
+        c.execute('''CREATE TABLE IF NOT EXISTS message_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            sender_id TEXT,
+            message_type TEXT,
+            status TEXT,
+            error_message TEXT,
+            metadata TEXT
+        )''')
         
         conn.commit()
         logger.info("Database initialized successfully")
@@ -91,95 +104,134 @@ def init_db():
         logger.error(f"Database initialization failed: {str(e)}")
         raise
 
-def store_message(user_id, message, sender, message_type="text", metadata=None, is_bot_response=False):
-    """Store a message in the database and maintain 10 message limit"""
+def log_message_status(sender_id, message_type, status, error_message=None, metadata=None):
+    """Log message status to database"""
     try:
         c = conn.cursor()
-        
-        # Insert new message
-        c.execute('''INSERT INTO conversations 
-                    (user_id, message, sender, message_type, metadata, timestamp, is_bot_response)
-                    VALUES (?, ?, ?, ?, ?, datetime('now'), ?)''',
-                    (user_id, message, sender, message_type, 
-                     json.dumps(metadata) if metadata else None, is_bot_response))
-        
-        # Keep only latest 10 messages per user
-        c.execute('''DELETE FROM conversations 
-                    WHERE id NOT IN (
-                        SELECT id FROM (
-                            SELECT id FROM conversations 
-                            WHERE user_id = ? 
-                            ORDER BY timestamp DESC 
-                            LIMIT 10
-                        )
-                    ) AND user_id = ?''', (user_id, user_id))
-        
+        c.execute('''INSERT INTO message_logs 
+                    (sender_id, message_type, status, error_message, metadata)
+                    VALUES (?, ?, ?, ?, ?)''',
+                 (sender_id, message_type, status, error_message, 
+                  json.dumps(metadata) if metadata else None))
         conn.commit()
-        return True
     except Exception as e:
-        logger.error(f"Failed to store message: {str(e)}")
-        conn.rollback()
-        return False
+        logger.error(f"Failed to log message status: {str(e)}")
 
-def get_conversation_history(user_id, limit=10):
-    """Get conversation history for a user"""
+def upload_image_to_graph(image_data):
+    """Upload image to Facebook Graph API"""
+    url = f"https://graph.facebook.com/{API_VERSION}/me/message_attachments"
+    params = {"access_token": PAGE_ACCESS_TOKEN}
+    
+    logger.debug("=== START IMAGE UPLOAD ===")
+    
     try:
-        c = conn.cursor()
-        c.execute('''SELECT timestamp, message, sender, message_type, metadata, is_bot_response 
-                    FROM conversations 
-                    WHERE user_id = ? 
-                    ORDER BY timestamp DESC 
-                    LIMIT ?''', (user_id, limit))
-        return c.fetchall()
+        if not isinstance(image_data, BytesIO):
+            logger.error(f"Invalid image_data type: {type(image_data)}")
+            return {"success": False, "error": "Invalid image data type"}
+
+        image_data.seek(0)
+        files = {"filedata": ("image.jpg", image_data, "image/jpeg")}
+        data = {"message": '{"attachment":{"type":"image", "payload":{}}}'}
+        
+        logger.debug("Sending image upload request to Facebook")
+        response = requests.post(url, params=params, files=files, data=data)
+        response_json = response.json()
+        
+        logger.debug(f"Upload response status: {response.status_code}")
+        logger.debug(f"Upload response content: {json.dumps(response_json, indent=2)}")
+        
+        if response.status_code == 200 and "attachment_id" in response_json:
+            logger.info(f"Image upload successful. Attachment ID: {response_json['attachment_id']}")
+            return {"success": True, "attachment_id": response_json["attachment_id"]}
+        else:
+            logger.error(f"Image upload failed. Response: {response.text}")
+            return {"success": False, "error": response_json.get("error", {}).get("message", "Unknown error")}
+            
     except Exception as e:
-        logger.error(f"Failed to get conversation history: {str(e)}")
-        return []
-def send_message(recipient_id, message_content):
-    """Send message to Facebook Messenger
-    
-    Args:
-        recipient_id (str): Facebook user ID to send message to
-        message_content (str or dict): Message content to send. Can be string for text messages
-                                     or dict for structured messages (images, etc)
-    
-    Returns:
-        bool: True if message was sent successfully, False otherwise
-    """
-    try:
-        message_data = {
-            "recipient": {"id": recipient_id},
-            "messaging_type": "RESPONSE"
-        }
+        logger.error(f"Error in upload_image_to_graph: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return {"success": False, "error": str(e)}
+    finally:
+        logger.debug("=== END IMAGE UPLOAD ===")
 
-        if isinstance(message_content, str):
-            message_data["message"] = {"text": message_content}
-        elif isinstance(message_content, dict):
-            if message_content.get("type") == "image":
-                message_data["message"] = {
-                    "attachment": {
-                        "type": "image",
-                        "payload": {
-                            "attachment_id": message_content["content"]
+def send_message(recipient_id, message):
+    """Send message to Facebook Messenger"""
+    api_url = f"https://graph.facebook.com/{API_VERSION}/me/messages"
+    params = {"access_token": PAGE_ACCESS_TOKEN}
+    headers = {"Content-Type": "application/json"}
+    
+    logger.debug(f"=== START SEND MESSAGE ===")
+    logger.debug(f"Recipient ID: {recipient_id}")
+    logger.debug(f"Message type: {type(message)}")
+    logger.debug(f"Message content: {message}")
+    
+    try:
+        if isinstance(message, dict):
+            if message.get("type") == "image":
+                data = {
+                    "recipient": {"id": recipient_id},
+                    "message": {
+                        "attachment": {
+                            "type": "image",
+                            "payload": {
+                                "attachment_id": message["content"]
+                            }
                         }
                     }
                 }
+                message_type = "image"
+                logger.debug(f"Prepared image message with attachment_id: {message['content']}")
             else:
-                message_data["message"] = message_content
-
-        url = f"https://graph.facebook.com/{API_VERSION}/me/messages"
-        params = {"access_token": PAGE_ACCESS_TOKEN}
-        
-        response = requests.post(url, params=params, json=message_data)
-        
-        if response.status_code != 200:
-            logger.error(f"Failed to send message: {response.text}")
-            return False
+                logger.error(f"Unsupported message type: {message.get('type')}")
+                return False
+        else:
+            if not isinstance(message, str):
+                message = str(message)
             
-        return True
+            data = {
+                "recipient": {"id": recipient_id},
+                "message": {"text": message}
+            }
+            message_type = "text"
+            logger.debug("Prepared text message")
+
+        logger.debug(f"Sending request to Facebook API: {json.dumps(data, indent=2)}")
+        
+        response = requests.post(api_url, params=params, headers=headers, json=data)
+        response_json = response.json() if response.text else {}
+        
+        logger.debug(f"Facebook API Response Status: {response.status_code}")
+        logger.debug(f"Facebook API Response: {json.dumps(response_json, indent=2)}")
+
+        if response.status_code == 200:
+            log_message_status(recipient_id, message_type, "success", metadata=response_json)
+            logger.info(f"Successfully sent {message_type} message to {recipient_id}")
+            return True
+        else:
+            error_msg = response_json.get("error", {}).get("message", "Unknown error")
+            log_message_status(recipient_id, message_type, "failed", error_msg, response_json)
+            logger.error(f"Failed to send message: {error_msg}")
+            
+            # Try to send error message if original message fails
+            if message_type == "image":
+                try:
+                    error_data = {
+                        "recipient": {"id": recipient_id},
+                        "message": {"text": f"Failed to send image: {error_msg}"}
+                    }
+                    requests.post(api_url, params=params, headers=headers, json=error_data)
+                except:
+                    pass
+            return False
+
     except Exception as e:
-        logger.error(f"Error sending message: {str(e)}")
+        error_msg = str(e)
+        log_message_status(recipient_id, "error", error_msg)
+        logger.error(f"Error in send_message: {error_msg}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         return False
+    finally:
+        logger.debug("=== END SEND MESSAGE ===")
 
 def process_command_response(sender_id, response):
     """Process command response and send appropriate message"""
@@ -201,41 +253,59 @@ def process_command_response(sender_id, response):
                             "type": "image",
                             "content": upload_response["attachment_id"]
                         }
-                        # Store bot's image response
-                        store_message(sender_id, "Image Response", "bot", "image", 
-                                    {"attachment_id": upload_response["attachment_id"]}, True)
-                        
                         logger.debug(f"Sending image message with data: {message_data}")
+                        
                         if send_message(sender_id, message_data):
                             logger.info(f"Successfully sent image message to {sender_id}")
                         else:
-                            error_msg = "Failed to send image"
-                            store_message(sender_id, error_msg, "bot", "text", None, True)
-                            send_message(sender_id, error_msg)
+                            logger.error(f"Failed to send image message to {sender_id}")
+                            send_message(sender_id, "Failed to send image")
                     else:
                         error_msg = f"Failed to upload image: {upload_response.get('error')}"
-                        store_message(sender_id, error_msg, "bot", "text", None, True)
+                        logger.error(error_msg)
                         send_message(sender_id, error_msg)
                 else:
-                    response_text = response.get("data", "No data provided")
-                    store_message(sender_id, response_text, "bot", "text", None, True)
-                    send_message(sender_id, response_text)
+                    send_message(sender_id, response.get("data", "No data provided"))
             else:
-                error_msg = response.get("data", "Command failed")
-                store_message(sender_id, error_msg, "bot", "text", None, True)
-                send_message(sender_id, error_msg)
+                send_message(sender_id, response.get("data", "Command failed"))
         else:
-            store_message(sender_id, str(response), "bot", "text", None, True)
             send_message(sender_id, str(response))
 
     except Exception as e:
         logger.error(f"Error processing command response: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
-        error_msg = "Error processing command response"
-        store_message(sender_id, error_msg, "bot", "text", None, True)
-        send_message(sender_id, error_msg)
+        send_message(sender_id, "Error processing command response")
     finally:
         logger.debug("=== END PROCESS COMMAND RESPONSE ===")
+
+def handle_command_message(sender_id, message_text):
+    """Handle command messages"""
+    command_parts = message_text[len(PREFIX):].split(maxsplit=1)
+    command_name = command_parts[0]
+    command_args = command_parts[1] if len(command_parts) > 1 else ""
+
+    logger.debug(f"Processing command: {command_name} with args: {command_args}")
+
+    try:
+        response = messageHandler.handle_text_command(command_name, command_args)
+        
+        if isinstance(response, list):
+            for item in response:
+                process_command_response(sender_id, item)
+        else:
+            process_command_response(sender_id, response)
+
+    except Exception as e:
+        logger.error(f"Error handling command: {str(e)}")
+        send_message(sender_id, f"Error processing command: {str(e)}")
+
+@app.route('/webhook', methods=['GET'])
+def verify():
+    """Verify webhook setup"""
+    token_sent = request.args.get("hub.verify_token")
+    if token_sent == VERIFY_TOKEN:
+        return request.args.get("hub.challenge", "")
+    return "Verification failed", 403
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -261,41 +331,25 @@ def webhook():
 
                     try:
                         if message_text.startswith(PREFIX):
-                            # Store user's command
-                            store_message(sender_id, message_text, "user", "command")
-                            response = messageHandler.handle_text_command(message, message_text)
+                            handle_command_message(sender_id, message_text)
                         elif attachments:
                             for attachment in attachments:
                                 if attachment["type"] == "image":
-                                    # Store user's image message
-                                    store_message(sender_id, "Image Sent", "user", "image", 
-                                                {"url": attachment["payload"]["url"]})
-                                    
                                     image_url = attachment["payload"]["url"]
                                     try:
                                         response = requests.get(image_url)
                                         image_data = response.content
                                         result = messageHandler.handle_attachment(image_data, "image")
-                                        # Store bot's analysis response
-                                        store_message(sender_id, str(result), "bot", "image_analysis", None, True)
                                         send_message(sender_id, result)
                                     except Exception as e:
                                         logger.error(f"Error processing image: {str(e)}")
-                                        error_msg = "Error processing image"
-                                        store_message(sender_id, error_msg, "bot", "error", None, True)
-                                        send_message(sender_id, error_msg)
+                                        send_message(sender_id, "Error processing image")
                         elif message_text:
-                            # Store user's message
-                            store_message(sender_id, message_text, "user", "text")
                             response = messageHandler.handle_text_message(message_text)
-                            # Store bot's response
-                            store_message(sender_id, str(response), "bot", "text", None, True)
                             send_message(sender_id, response)
                     except Exception as e:
                         logger.error(f"Error processing message: {str(e)}")
-                        error_msg = "Sorry, I encountered an error processing your message."
-                        store_message(sender_id, error_msg, "bot", "error", None, True)
-                        send_message(sender_id, error_msg)
+                        send_message(sender_id, "Sorry, I encountered an error processing your message.")
 
         return "EVENT_RECEIVED", 200
 
