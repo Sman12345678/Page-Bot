@@ -7,21 +7,20 @@ import requests
 from io import BytesIO
 import urllib3
 import time
-
+import json
 
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Load  variables
+# Load environment variables
 load_dotenv()
 
-#  logging
+# Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # System instruction for text conversations
-
-time_now=time.asctime(time.localtime(time.time()))
+time_now = time.asctime(time.localtime(time.time()))
 system_instruction = """
 *System Name:*Your Name is KORA AI an AI Assistance created by Kolawole Suleiman. you are running on Sman V1.0 which is latest version build with high programming technique. you should assist to all topics
 *owner:* You are owned and created by Kolawole Suleiman
@@ -65,10 +64,14 @@ Today date is:{}
 # Image analysis prompt
 IMAGE_ANALYSIS_PROMPT = """Analyize the image keenly and explain it's content,if it's a text translate it and identify the Language. If it Contain a Question Solve it perfectly"""
 
-def initialize_text_model():
-    """Initialize Gemini model for text processing"""
+# Store model instances for each user to maintain conversation context
+user_models = {}
+
+def initialize_text_model(user_id, history=None):
+    """Initialize Gemini model for text processing with history"""
     genai.configure(api_key=os.getenv("GEMINI_TEXT_API_KEY"))
-    return genai.GenerativeModel(
+    
+    model = genai.GenerativeModel(
         model_name="gemini-1.5-flash",
         generation_config={
             "temperature": 0.3,
@@ -77,19 +80,35 @@ def initialize_text_model():
             "max_output_tokens": 8192,
         }
     )
-
-def initialize_image_model():
-    """Initialize Gemini model for image processing"""
-    genai.configure(api_key=os.getenv("GEMINI_IMAGE_API_KEY"))
-    return genai.GenerativeModel("gemini-1.5-pro")
-
-def handle_text_message(user_message):
     
+    # Convert history format to Gemini format if provided
+    gemini_history = []
+    if history:
+        for message in history:
+            gemini_history.append({
+                "role": message["role"],
+                "parts": [message["content"]]
+            })
+    
+    # Start a chat session with history if available
+    chat = model.start_chat(history=gemini_history)
+    user_models[user_id] = chat
+    
+    return chat
+
+def get_or_create_chat(user_id, history=None):
+    """Get existing chat or create a new one"""
+    if user_id in user_models:
+        return user_models[user_id]
+    else:
+        return initialize_text_model(user_id, history)
+
+def handle_text_message(user_id, user_message, history=None):
     try:
-        logger.info("Processing text message: %s", user_message)
+        logger.info("Processing text message from %s: %s", user_id, user_message)
         
-        # Initialize text model and start chat
-        chat = initialize_text_model().start_chat(history=[])
+        # Get or create chat for this user
+        chat = get_or_create_chat(user_id, history)
         
         # Generate response
         response = chat.send_message(f"{system_instruction}\n\nHuman: {user_message}")
@@ -97,9 +116,14 @@ def handle_text_message(user_message):
 
     except Exception as e:
         logger.error("Error processing text message: %s", str(e))
+        
+        # If error occurs, reinitialize the chat
+        if user_id in user_models:
+            del user_models[user_id]
+            
         return "😔 Sorry, I encountered an error processing your message."
 
-def handle_text_command(command_name,message):
+def handle_text_command(command_name, message):
     """Handle text commands from CMD folder"""
     try:
         cmd_module = importlib.import_module(f"CMD.{command_name}")
@@ -108,16 +132,17 @@ def handle_text_command(command_name,message):
         logger.warning("Command %s not found.", command_name)
         return "🚫 The Command you are using does not exist, Type /help to view Available Command"
 
-def handle_attachment(attachment_data, attachment_type="image"):
-    
+def handle_attachment(user_id, attachment_data, attachment_type="image"):
     if attachment_type != "image":
         return "🚫 Unsupported attachment type. Please send an image."
 
-    logger.info("Processing image attachment")
+    logger.info("Processing image attachment from %s", user_id)
     
     try:
-        # Initialize image & analyze
-        model = initialize_image_model()
+        # Initialize Gemini for image analysis with same key, change to flash bro if you wish 
+        genai.configure(api_key=os.getenv("GEMINI_TEXT_API_KEY"))
+        model = genai.GenerativeModel("gemini-1.5-pro")
+        
         response = model.generate_content([
             IMAGE_ANALYSIS_PROMPT,
             {'mime_type': 'image/jpeg', 'data': attachment_data}
