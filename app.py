@@ -84,7 +84,8 @@ def init_db():
             user_id TEXT PRIMARY KEY,
             last_interaction DATETIME,
             conversation_state TEXT,
-            user_preferences TEXT
+            user_preferences TEXT,
+            conversation_history TEXT
         )''')
         
         c.execute('''CREATE TABLE IF NOT EXISTS message_logs (
@@ -103,6 +104,54 @@ def init_db():
     except Exception as e:
         logger.error(f"Database initialization failed: {str(e)}")
         raise
+
+def store_message(user_id, message, sender, message_type="text", metadata=None):
+    """Store message in database"""
+    try:
+        c = conn.cursor()
+        c.execute('''INSERT INTO conversations 
+                    (user_id, message, sender, message_type, metadata, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?)''',
+                 (user_id, message, sender, message_type, 
+                  json.dumps(metadata) if metadata else None, get_current_time()))
+        
+        # Update user context with conversation history
+        c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', (user_id,))
+        result = c.fetchone()
+        
+        if result:
+            history = json.loads(result[0]) if result[0] else []
+        else:
+            history = []
+            
+        history.append({"role": "user" if sender == "user" else "assistant", "content": message})
+        
+        # Limit history to last 10 messages
+        if len(history) > 20:
+            history = history[-20:]
+            
+        c.execute('''INSERT OR REPLACE INTO user_context 
+                    (user_id, last_interaction, conversation_history)
+                    VALUES (?, ?, ?)''',
+                 (user_id, get_current_time(), json.dumps(history)))
+        
+        conn.commit()
+    except Exception as e:
+        logger.error(f"Failed to store message: {str(e)}")
+
+def get_conversation_history(user_id):
+    """Get conversation history for a user"""
+    try:
+        c = conn.cursor()
+        c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', (user_id,))
+        result = c.fetchone()
+        
+        if result and result[0]:
+            return json.loads(result[0])
+        return []
+    except Exception as e:
+        logger.error(f"Failed to get conversation history: {str(e)}")
+        return []
 
 def log_message_status(sender_id, message_type, status, error_message=None, metadata=None):
     """Log message status to database"""
@@ -180,6 +229,7 @@ def send_message(recipient_id, message):
                     }
                 }
                 message_type = "image"
+                message_content = f"[IMAGE: {message['content']}]"
                 logger.debug(f"Prepared image message with attachment_id: {message['content']}")
             else:
                 logger.error(f"Unsupported message type: {message.get('type')}")
@@ -193,6 +243,7 @@ def send_message(recipient_id, message):
                 "message": {"text": message}
             }
             message_type = "text"
+            message_content = message
             logger.debug("Prepared text message")
 
         logger.debug(f"Sending request to Facebook API: {json.dumps(data, indent=2)}")
@@ -204,6 +255,9 @@ def send_message(recipient_id, message):
         logger.debug(f"Facebook API Response: {json.dumps(response_json, indent=2)}")
 
         if response.status_code == 200:
+            # Store message in database
+            store_message(recipient_id, message_content, "bot", message_type)
+            
             log_message_status(recipient_id, message_type, "success", metadata=response_json)
             logger.info(f"Successfully sent {message_type} message to {recipient_id}")
             return True
@@ -330,6 +384,9 @@ def webhook():
                     logger.debug(f"Processing message from {sender_id}: {message_text}")
 
                     try:
+                        # Store user message in database
+                        store_message(sender_id, message_text, "user")
+                        
                         if message_text.startswith(PREFIX):
                             handle_command_message(sender_id, message_text)
                         elif attachments:
@@ -339,13 +396,17 @@ def webhook():
                                     try:
                                         response = requests.get(image_url)
                                         image_data = response.content
-                                        result = messageHandler.handle_attachment(image_data, "image")
+                                        # Store attachment message
+                                        store_message(sender_id, "[IMAGE]", "user", "image")
+                                        result = messageHandler.handle_attachment(sender_id, image_data, "image")
                                         send_message(sender_id, result)
                                     except Exception as e:
                                         logger.error(f"Error processing image: {str(e)}")
                                         send_message(sender_id, "Error processing image")
                         elif message_text:
-                            response = messageHandler.handle_text_message(message_text)
+                            # Get conversation history for context
+                            history = get_conversation_history(sender_id)
+                            response = messageHandler.handle_text_message(sender_id, message_text, history)
                             send_message(sender_id, response)
                     except Exception as e:
                         logger.error(f"Error processing message: {str(e)}")
@@ -371,11 +432,27 @@ def api():
         return jsonify({"error": "No query provided"}), 400
 
     try:
-        response = messageHandler.handle_text_message(query)
+        # Use a fixed user_id for API requests
+        api_user_id = "api_user_" + str(int(time.time()))
+        response = messageHandler.handle_text_message(api_user_id, query, [])
         return jsonify({"response": response})
     except Exception as e:
         logger.error(f"API error: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+@app.route('/status', methods=['GET'])
+def status():
+    """Get bot status"""
+    uptime = get_bot_uptime()
+    hours, remainder = divmod(uptime, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    
+    return jsonify({
+        "status": "online",
+        "uptime": f"{int(hours)}h {int(minutes)}m {int(seconds)}s",
+        "initialized": INITIALIZED,
+        "timestamp": get_current_time()
+    })
 
 def get_bot_uptime():
     """Get bot uptime"""
@@ -392,4 +469,4 @@ except Exception as e:
     raise
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0',port=3000)
+    app.run(debug=True, host='0.0.0.0', port=3000)
