@@ -338,7 +338,7 @@ def webhook():
                                     image_url = attachment["payload"]["url"]
                                     try:
                                         response = requests.get(image_url)
-                                        image_data = BytesIO(response.content)
+                                        image_data = response.content
                                         result = messageHandler.handle_attachment(image_data, "image")
                                         send_message(sender_id, result)
                                     except Exception as e:
