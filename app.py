@@ -263,7 +263,7 @@ def webhook():
                         if message_text.startswith(PREFIX):
                             # Store user's command
                             store_message(sender_id, message_text, "user", "command")
-                            messageHandler.handle_text_command(sender_id, message_text)
+                            response = messageHandler.handle_text_command(sender_id, message_text)
                         elif attachments:
                             for attachment in attachments:
                                 if attachment["type"] == "image":
