@@ -64,12 +64,12 @@ def validate_environment():
         raise
 
 def init_db():
-    """Initialize SQLite database"""
+    """Initialize SQLite database with improved schema"""
     try:
         conn = sqlite3.connect('bot_memory.db', check_same_thread=False)
         c = conn.cursor()
         
-        # Create conversations table with support for image analysis and split messages
+        # Create tables
         c.execute('''CREATE TABLE IF NOT EXISTS conversations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id TEXT NOT NULL,
@@ -80,12 +80,22 @@ def init_db():
             metadata TEXT
         )''')
         
-        # Create user_context table with conversation history
         c.execute('''CREATE TABLE IF NOT EXISTS user_context (
             user_id TEXT PRIMARY KEY,
             last_interaction DATETIME,
             conversation_state TEXT,
+            user_preferences TEXT,
             conversation_history TEXT
+        )''')
+        
+        c.execute('''CREATE TABLE IF NOT EXISTS message_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            sender_id TEXT,
+            message_type TEXT,
+            status TEXT,
+            error_message TEXT,
+            metadata TEXT
         )''')
         
         conn.commit()
@@ -95,109 +105,35 @@ def init_db():
         logger.error(f"Database initialization failed: {str(e)}")
         raise
 
-def split_message(message):
-    """Split message if it exceeds Facebook's 2000 character limit"""
-    MAX_LENGTH = 2000
-    if len(message) <= MAX_LENGTH:
-        return [message]
-        
-    parts = []
-    while len(message) > 0:
-        if len(message) <= MAX_LENGTH:
-            parts.append(message)
-            break
-            
-        # Find the last space within the limit
-        split_index = message.rfind(' ', 0, MAX_LENGTH)
-        if split_index == -1:
-            split_index = MAX_LENGTH
-            
-        parts.append(message[:split_index])
-        message = message[split_index:].lstrip()
-    
-    # Add part numbers
-    return [f"[{i+1}/{len(parts)}] {part}" for i, part in enumerate(parts)]
-
-def store_message(user_id, message, sender, message_type="text"):
-    """Store message in database and maintain conversation flow"""
+def store_message(user_id, message, sender, message_type="text", metadata=None):
+    """Store message in database"""
     try:
         c = conn.cursor()
+        c.execute('''INSERT INTO conversations 
+                    (user_id, message, sender, message_type, metadata, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?)''',
+                 (user_id, message, sender, message_type, 
+                  json.dumps(metadata) if metadata else None, get_current_time()))
         
-        # If it's an image analysis response
-        if message_type == "image_analysis":
-            # Store the analysis response
-            c.execute('''INSERT INTO conversations 
-                        (user_id, message, sender, message_type, timestamp)
-                        VALUES (?, ?, ?, ?, datetime('now'))''',
-                     (user_id, json.dumps(message), "bot", "image_analysis"))
-                     
-            # Update conversation flow in user_context
-            c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', 
-                     (user_id,))
-            result = c.fetchone()
-            history = json.loads(result[0]) if result and result[0] else []
+        # Update user context with conversation history
+        c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', (user_id,))
+        result = c.fetchone()
+        
+        if result:
+            history = json.loads(result[0]) if result[0] else []
+        else:
+            history = []
             
-            # Add image analysis to conversation history
-            history.append({
-                "role": "assistant",
-                "type": "image_analysis",
-                "content": message["analysis"]
-            })
+        history.append({"role": "user" if sender == "user" else "assistant", "content": message})
+        
+        # Limit history to last 10 messages
+        if len(history) > 20:
+            history = history[-20:]
             
-            # Update user context
-            c.execute('''INSERT OR REPLACE INTO user_context 
-                        (user_id, conversation_history, last_interaction)
-                        VALUES (?, ?, datetime('now'))''',
-                     (user_id, json.dumps(history)))
-                     
-        else:  # Regular text message
-            # For split messages, store each part
-            if isinstance(message, list):
-                for part in message:
-                    c.execute('''INSERT INTO conversations 
-                                (user_id, message, sender, message_type, timestamp)
-                                VALUES (?, ?, ?, ?, datetime('now'))''',
-                             (user_id, part, sender, message_type))
-                
-                # Store in conversation history
-                c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', 
-                         (user_id,))
-                result = c.fetchone()
-                history = json.loads(result[0]) if result and result[0] else []
-                
-                # Add full message to history (combine split parts)
-                history.append({
-                    "role": "assistant" if sender == "bot" else "user",
-                    "content": " ".join(part.split('] ', 1)[1] for part in message)
-                })
-                
-                # Update user context
-                c.execute('''INSERT OR REPLACE INTO user_context 
-                            (user_id, conversation_history, last_interaction)
-                            VALUES (?, ?, datetime('now'))''',
-                         (user_id, json.dumps(history)))
-            else:
-                # Store single message
-                c.execute('''INSERT INTO conversations 
-                            (user_id, message, sender, message_type, timestamp)
-                            VALUES (?, ?, ?, ?, datetime('now'))''',
-                         (user_id, message, sender, message_type))
-                
-                # Update conversation history
-                c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', 
-                         (user_id,))
-                result = c.fetchone()
-                history = json.loads(result[0]) if result and result[0] else []
-                
-                history.append({
-                    "role": "assistant" if sender == "bot" else "user",
-                    "content": message
-                })
-                
-                c.execute('''INSERT OR REPLACE INTO user_context 
-                            (user_id, conversation_history, last_interaction)
-                            VALUES (?, ?, datetime('now'))''',
-                         (user_id, json.dumps(history)))
+        c.execute('''INSERT OR REPLACE INTO user_context 
+                    (user_id, last_interaction, conversation_history)
+                    VALUES (?, ?, ?)''',
+                 (user_id, get_current_time(), json.dumps(history)))
         
         conn.commit()
     except Exception as e:
@@ -207,8 +143,7 @@ def get_conversation_history(user_id):
     """Get conversation history for a user"""
     try:
         c = conn.cursor()
-        c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''',
-                 (user_id,))
+        c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', (user_id,))
         result = c.fetchone()
         
         if result and result[0]:
@@ -218,57 +153,205 @@ def get_conversation_history(user_id):
         logger.error(f"Failed to get conversation history: {str(e)}")
         return []
 
+def log_message_status(sender_id, message_type, status, error_message=None, metadata=None):
+    """Log message status to database"""
+    try:
+        c = conn.cursor()
+        c.execute('''INSERT INTO message_logs 
+                    (sender_id, message_type, status, error_message, metadata)
+                    VALUES (?, ?, ?, ?, ?)''',
+                 (sender_id, message_type, status, error_message, 
+                  json.dumps(metadata) if metadata else None))
+        conn.commit()
+    except Exception as e:
+        logger.error(f"Failed to log message status: {str(e)}")
+
+def upload_image_to_graph(image_data):
+    """Upload image to Facebook Graph API"""
+    url = f"https://graph.facebook.com/{API_VERSION}/me/message_attachments"
+    params = {"access_token": PAGE_ACCESS_TOKEN}
+    
+    logger.debug("=== START IMAGE UPLOAD ===")
+    
+    try:
+        if not isinstance(image_data, BytesIO):
+            logger.error(f"Invalid image_data type: {type(image_data)}")
+            return {"success": False, "error": "Invalid image data type"}
+
+        image_data.seek(0)
+        files = {"filedata": ("image.jpg", image_data, "image/jpeg")}
+        data = {"message": '{"attachment":{"type":"image", "payload":{}}}'}
+        
+        logger.debug("Sending image upload request to Facebook")
+        response = requests.post(url, params=params, files=files, data=data)
+        response_json = response.json()
+        
+        logger.debug(f"Upload response status: {response.status_code}")
+        logger.debug(f"Upload response content: {json.dumps(response_json, indent=2)}")
+        
+        if response.status_code == 200 and "attachment_id" in response_json:
+            logger.info(f"Image upload successful. Attachment ID: {response_json['attachment_id']}")
+            return {"success": True, "attachment_id": response_json["attachment_id"]}
+        else:
+            logger.error(f"Image upload failed. Response: {response.text}")
+            return {"success": False, "error": response_json.get("error", {}).get("message", "Unknown error")}
+            
+    except Exception as e:
+        logger.error(f"Error in upload_image_to_graph: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return {"success": False, "error": str(e)}
+    finally:
+        logger.debug("=== END IMAGE UPLOAD ===")
+
 def send_message(recipient_id, message):
     """Send message to Facebook Messenger"""
     api_url = f"https://graph.facebook.com/{API_VERSION}/me/messages"
     params = {"access_token": PAGE_ACCESS_TOKEN}
     headers = {"Content-Type": "application/json"}
     
+    logger.debug(f"=== START SEND MESSAGE ===")
+    logger.debug(f"Recipient ID: {recipient_id}")
+    logger.debug(f"Message type: {type(message)}")
+    logger.debug(f"Message content: {message}")
+    
     try:
-        # Handle image analysis response
-        if isinstance(message, dict) and "type" in message and message["type"] == "image_analysis":
-            # Format the analysis message
-            analysis_text = f"Image Analysis:\n{message['analysis']}"
-            
-            # Split if needed and send
-            parts = split_message(analysis_text)
-            for part in parts:
+        if isinstance(message, dict):
+            if message.get("type") == "image":
                 data = {
                     "recipient": {"id": recipient_id},
-                    "message": {"text": part}
+                    "message": {
+                        "attachment": {
+                            "type": "image",
+                            "payload": {
+                                "attachment_id": message["content"]
+                            }
+                        }
+                    }
                 }
-                response = requests.post(api_url, params=params, headers=headers, json=data)
-                if response.status_code != 200:
-                    return False
+                message_type = "image"
+                message_content = f"[IMAGE: {message['content']}]"
+                logger.debug(f"Prepared image message with attachment_id: {message['content']}")
+            else:
+                logger.error(f"Unsupported message type: {message.get('type')}")
+                return False
+        else:
+            if not isinstance(message, str):
+                message = str(message)
             
-            # Store in database with conversation flow
-            store_message(recipient_id, message, "bot", "image_analysis")
-            return True
-            
-        # Handle regular text messages
-        elif isinstance(message, str):
-            # Split if needed
-            parts = split_message(message)
-            
-            # Send each part
-            for part in parts:
-                data = {
-                    "recipient": {"id": recipient_id},
-                    "message": {"text": part}
-                }
-                response = requests.post(api_url, params=params, headers=headers, json=data)
-                if response.status_code != 200:
-                    return False
-            
-            # Store in database
-            store_message(recipient_id, parts if len(parts) > 1 else message, "bot", "text")
-            return True
-            
-        return False
+            data = {
+                "recipient": {"id": recipient_id},
+                "message": {"text": message}
+            }
+            message_type = "text"
+            message_content = message
+            logger.debug("Prepared text message")
+
+        logger.debug(f"Sending request to Facebook API: {json.dumps(data, indent=2)}")
         
+        response = requests.post(api_url, params=params, headers=headers, json=data)
+        response_json = response.json() if response.text else {}
+        
+        logger.debug(f"Facebook API Response Status: {response.status_code}")
+        logger.debug(f"Facebook API Response: {json.dumps(response_json, indent=2)}")
+
+        if response.status_code == 200:
+            # Store message in database
+            store_message(recipient_id, message_content, "bot", message_type)
+            
+            log_message_status(recipient_id, message_type, "success", metadata=response_json)
+            logger.info(f"Successfully sent {message_type} message to {recipient_id}")
+            return True
+        else:
+            error_msg = response_json.get("error", {}).get("message", "Unknown error")
+            log_message_status(recipient_id, message_type, "failed", error_msg, response_json)
+            logger.error(f"Failed to send message: {error_msg}")
+            
+            # Try to send error message if original message fails
+            if message_type == "image":
+                try:
+                    error_data = {
+                        "recipient": {"id": recipient_id},
+                        "message": {"text": f"Failed to send image: {error_msg}"}
+                    }
+                    requests.post(api_url, params=params, headers=headers, json=error_data)
+                except:
+                    pass
+            return False
+
     except Exception as e:
-        logger.error(f"Error in send_message: {str(e)}")
+        error_msg = str(e)
+        log_message_status(recipient_id, "error", error_msg)
+        logger.error(f"Error in send_message: {error_msg}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return False
+    finally:
+        logger.debug("=== END SEND MESSAGE ===")
+
+def process_command_response(sender_id, response):
+    """Process command response and send appropriate message"""
+    logger.debug(f"=== START PROCESS COMMAND RESPONSE ===")
+    logger.debug(f"Sender ID: {sender_id}")
+    logger.debug(f"Response type: {type(response)}")
+    logger.debug(f"Response content: {response}")
+    
+    try:
+        if isinstance(response, dict):
+            if response.get("success"):
+                if response.get("type") == "image" and isinstance(response.get("data"), BytesIO):
+                    logger.debug("Processing image response")
+                    upload_response = upload_image_to_graph(response["data"])
+                    logger.debug(f"Upload response: {upload_response}")
+                    
+                    if upload_response.get("success"):
+                        message_data = {
+                            "type": "image",
+                            "content": upload_response["attachment_id"]
+                        }
+                        logger.debug(f"Sending image message with data: {message_data}")
+                        
+                        if send_message(sender_id, message_data):
+                            logger.info(f"Successfully sent image message to {sender_id}")
+                        else:
+                            logger.error(f"Failed to send image message to {sender_id}")
+                            send_message(sender_id, "Failed to send image")
+                    else:
+                        error_msg = f"Failed to upload image: {upload_response.get('error')}"
+                        logger.error(error_msg)
+                        send_message(sender_id, error_msg)
+                else:
+                    send_message(sender_id, response.get("data", "No data provided"))
+            else:
+                send_message(sender_id, response.get("data", "Command failed"))
+        else:
+            send_message(sender_id, str(response))
+
+    except Exception as e:
+        logger.error(f"Error processing command response: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        send_message(sender_id, "Error processing command response")
+    finally:
+        logger.debug("=== END PROCESS COMMAND RESPONSE ===")
+
+def handle_command_message(sender_id, message_text):
+    """Handle command messages"""
+    command_parts = message_text[len(PREFIX):].split(maxsplit=1)
+    command_name = command_parts[0]
+    command_args = command_parts[1] if len(command_parts) > 1 else ""
+
+    logger.debug(f"Processing command: {command_name} with args: {command_args}")
+
+    try:
+        response = messageHandler.handle_text_command(command_name, command_args)
+        
+        if isinstance(response, list):
+            for item in response:
+                process_command_response(sender_id, item)
+        else:
+            process_command_response(sender_id, response)
+
+    except Exception as e:
+        logger.error(f"Error handling command: {str(e)}")
+        send_message(sender_id, f"Error processing command: {str(e)}")
 
 @app.route('/webhook', methods=['GET'])
 def verify():
@@ -301,24 +384,29 @@ def webhook():
                     logger.debug(f"Processing message from {sender_id}: {message_text}")
 
                     try:
-                        # Store user message
-                        if message_text:
-                            store_message(sender_id, message_text, "user")
-
+                        # Store user message in database
+                        store_message(sender_id, message_text, "user")
+                        
                         if message_text.startswith(PREFIX):
-                            response = messageHandler.handle_command(message_text[len(PREFIX):])
-                            send_message(sender_id, response)
+                            handle_command_message(sender_id, message_text)
                         elif attachments:
                             for attachment in attachments:
                                 if attachment["type"] == "image":
-                                    response = messageHandler.handle_image(attachment["payload"]["url"])
-                                    send_message(sender_id, {
-                                        "type": "image_analysis",
-                                        "analysis": response
-                                    })
+                                    image_url = attachment["payload"]["url"]
+                                    try:
+                                        response = requests.get(image_url)
+                                        image_data = response.content
+                                        # Store attachment message
+                                        store_message(sender_id, "[IMAGE]", "user", "image")
+                                        result = messageHandler.handle_attachment(sender_id, image_data, "image")
+                                        send_message(sender_id, result)
+                                    except Exception as e:
+                                        logger.error(f"Error processing image: {str(e)}")
+                                        send_message(sender_id, "Error processing image")
                         elif message_text:
+                            # Get conversation history for context
                             history = get_conversation_history(sender_id)
-                            response = messageHandler.handle_message(message_text, history)
+                            response = messageHandler.handle_text_message(sender_id, message_text, history)
                             send_message(sender_id, response)
                     except Exception as e:
                         logger.error(f"Error processing message: {str(e)}")
@@ -336,15 +424,39 @@ def home():
     """Render home page"""
     return render_template('index.html')
 
-@app.route('/status')
+@app.route('/api', methods=['GET'])
+def api():
+    """Handle API requests"""
+    query = request.args.get('query')
+    if not query:
+        return jsonify({"error": "No query provided"}), 400
+
+    try:
+        # Use a fixed user_id for API requests
+        api_user_id = "api_user_" + str(int(time.time()))
+        response = messageHandler.handle_text_message(api_user_id, query, [])
+        return jsonify({"response": response})
+    except Exception as e:
+        logger.error(f"API error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/status', methods=['GET'])
 def status():
     """Get bot status"""
-    uptime = time.time() - start_time
+    uptime = get_bot_uptime()
+    hours, remainder = divmod(uptime, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    
     return jsonify({
         "status": "online",
-        "uptime": f"{int(uptime)}s",
-        "initialized": INITIALIZED
+        "uptime": f"{int(hours)}h {int(minutes)}m {int(seconds)}s",
+        "initialized": INITIALIZED,
+        "timestamp": get_current_time()
     })
+
+def get_bot_uptime():
+    """Get bot uptime"""
+    return time.time() - start_time
 
 # Initialize the application
 try:
