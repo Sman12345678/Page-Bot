@@ -213,79 +213,84 @@ def send_message(recipient_id, message):
     logger.debug(f"Recipient ID: {recipient_id}")
     logger.debug(f"Message type: {type(message)}")
     logger.debug(f"Message content: {message}")
-    
-    try:
-        if isinstance(message, dict):
-            if message.get("type") == "image":
-                data = {
-                    "recipient": {"id": recipient_id},
-                    "message": {
-                        "attachment": {
-                            "type": "image",
-                            "payload": {
-                                "attachment_id": message["content"]
-                            }
+
+    messages_to_send = []
+    if isinstance(message, dict):
+        if message.get("type") == "image":
+            data = {
+                "recipient": {"id": recipient_id},
+                "message": {
+                    "attachment": {
+                        "type": "image",
+                        "payload": {
+                            "attachment_id": message["content"]
                         }
                     }
                 }
-                message_type = "image"
-                message_content = f"[IMAGE: {message['content']}]"
-                logger.debug(f"Prepared image message with attachment_id: {message['content']}")
-            else:
-                logger.error(f"Unsupported message type: {message.get('type')}")
-                return False
+            }
+            messages_to_send.append((data, "image", f"[IMAGE: {message['content']}]"))
+            logger.debug(f"Prepared image message with attachment_id: {message['content']}")
         else:
-            if not isinstance(message, str):
-                message = str(message)
-            
+            logger.error(f"Unsupported message type: {message.get('type')}")
+            return False
+    else:
+        if not isinstance(message, str):
+            message = str(message)
+
+        # Split message into parts if it exceeds 2000 characters
+        parts = [message[i:i + 2000] for i in range(0, len(message), 2000)]
+        for part in parts:
             data = {
                 "recipient": {"id": recipient_id},
-                "message": {"text": message}
+                "message": {"text": part}
             }
-            message_type = "text"
-            message_content = message
+            messages_to_send.append((data, "text", part))
             logger.debug("Prepared text message")
 
-        logger.debug(f"Sending request to Facebook API: {json.dumps(data, indent=2)}")
+    success = True
+    for data, message_type, message_content in messages_to_send:
+        try:
+            logger.debug(f"Sending request to Facebook API: {json.dumps(data, indent=2)}")
         
-        response = requests.post(api_url, params=params, headers=headers, json=data)
-        response_json = response.json() if response.text else {}
-        
-        logger.debug(f"Facebook API Response Status: {response.status_code}")
-        logger.debug(f"Facebook API Response: {json.dumps(response_json, indent=2)}")
-
-        if response.status_code == 200:
-            # Store message in database
-            store_message(recipient_id, message_content, "bot", message_type)
+            response = requests.post(api_url, params=params, headers=headers, json=data)
+            response_json = response.json() if response.text else {}
             
-            log_message_status(recipient_id, message_type, "success", metadata=response_json)
-            logger.info(f"Successfully sent {message_type} message to {recipient_id}")
-            return True
-        else:
-            error_msg = response_json.get("error", {}).get("message", "Unknown error")
-            log_message_status(recipient_id, message_type, "failed", error_msg, response_json)
-            logger.error(f"Failed to send message: {error_msg}")
-            
-            # Try to send error message if original message fails
-            if message_type == "image":
-                try:
-                    error_data = {
-                        "recipient": {"id": recipient_id},
-                        "message": {"text": f"Failed to send image: {error_msg}"}
-                    }
-                    requests.post(api_url, params=params, headers=headers, json=error_data)
-                except:
-                    pass
-            return False
+            logger.debug(f"Facebook API Response Status: {response.status_code}")
+            logger.debug(f"Facebook API Response: {json.dumps(response_json, indent=2)}")
 
-    except Exception as e:
-        error_msg = str(e)
-        log_message_status(recipient_id, "error", error_msg)
-        logger.error(f"Error in send_message: {error_msg}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return False
-    finally:
-        logger.debug("=== END SEND MESSAGE ===")
+            if response.status_code == 200:
+                # Store message in database
+                store_message(recipient_id, message_content, "bot", message_type)
+                
+                log_message_status(recipient_id, message_type, "success", metadata=response_json)
+                logger.info(f"Successfully sent {message_type} message to {recipient_id}")
+            else:
+                error_msg = response_json.get("error", {}).get("message", "Unknown error")
+                log_message_status(recipient_id, message_type, "failed", error_msg, response_json)
+                logger.error(f"Failed to send message: {error_msg}")
+                
+                # Try to send error message if original message fails
+                if message_type == "image":
+                    try:
+                        error_data = {
+                            "recipient": {"id": recipient_id},
+                            "message": {"text": f"Failed to send image: {error_msg}"}
+                        }
+                        requests.post(api_url, params=params, headers=headers, json=error_data)
+                    except:
+                        pass
+                success = False
+
+        except Exception as e:
+            error_msg = str(e)
+            log_message_status(recipient_id, "error", error_msg)
+            logger.error(f"Error in send_message: {error_msg}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            success = False
+        finally:
+            logger.debug("=== END SEND MESSAGE ===")
+
+    return success
 
 def process_command_response(sender_id, response):
     """Process command response and send appropriate message"""
