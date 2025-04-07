@@ -4,6 +4,9 @@ import requests
 import logging
 from urllib.parse import urljoin
 
+Info={
+    "Description":"Search For Images using Bing Search"
+}
 # Configure logging
 logging.basicConfig(
     filename="image_scraper.log",
