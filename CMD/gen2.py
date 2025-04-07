@@ -31,7 +31,7 @@ def execute(message):
         logging.info(f"Attempting to generate image with prompt: {message}")
         
         # Custom API endpoint
-        api_url = f"https://api.zetsu.xyz/api/dalle-3?prompt={message}"
+        api_url = f"https://api.zetsu.xyz/api/dalle-3?prompt={message}&apikey=33b3f9c359186f7ef15aeb39c422f88d"
         
         # Send initial message about generation
         initial_response = {"success": True, "type": "text", "data": "🎨 Generating your image..."}
