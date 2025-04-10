@@ -68,7 +68,6 @@ IMAGE_ANALYSIS_PROMPT = """Analyize the image keenly and explain it's content,if
 user_models = {}
 
 def initialize_text_model(user_id, history=None):
-    """Initialize Gemini model for text processing with history"""
     genai.configure(api_key=os.getenv("GEMINI_TEXT_API_KEY"))
     
     model = genai.GenerativeModel(
@@ -81,16 +80,19 @@ def initialize_text_model(user_id, history=None):
         }
     )
     
-    # Convert history format to Gemini format if provided
     gemini_history = []
     if history:
         for message in history:
+            # Create a more contextual message for the model
+            content = message["content"]
+            if "Image Analysis Results:" in content:
+                content = f"Previous context: {content}"
+                
             gemini_history.append({
                 "role": message["role"],
-                "parts": [message["content"]]
+                "parts": [content]
             })
     
-    # Start a chat session with history if available
     chat = model.start_chat(history=gemini_history)
     user_models[user_id] = chat
     
