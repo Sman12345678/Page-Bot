@@ -209,7 +209,7 @@ def get_conversation_history(user_id):
                     if msg.get("type") == "image":
                         entry["content"] = "[User sent an image]"
                     elif msg.get("type") == "image_analysis":
-                        entry["content"] = f"[Bot's image analysis]: {msg['content']}"
+                        entry["content"] = msg["content"]
                     formatted_history.append(entry)
                 return formatted_history
             return []
