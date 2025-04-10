@@ -458,33 +458,27 @@ def webhook():
                                 if attachment["type"] == "image":
                                     image_url = attachment["payload"]["url"]
                                     try:
-                                        # Store user's image message with metadata
-                                        store_message(
-                                            sender_id, 
-                                            "[IMAGE]", 
-                                            "user", 
-                                            "image", 
-                                            {"url": image_url}
-                                        )
-                                        
-                                        response = requests.get(image_url)
-                                        image_data = response.content
-                                        
-                                        # Get image analysis from messageHandler
-                                        result = messageHandler.handle_attachment(
-                                            sender_id, 
-                                            image_data, 
-                                            "image"
-                                        )
-                                        
-                                        # Store bot's analysis response
-                                        store_message(
-                                            sender_id,
-                                            result,
-                                            "bot",
-                                            "image_analysis",
-                                            {"source_image_url": image_url}
-                                        )
+                                        # When storing the image message:
+store_message(
+    sender_id, 
+    f"[User shared an image for analysis]", 
+    "user", 
+    "image", 
+    {"url": image_url, "timestamp": get_current_time()}
+)
+
+# When storing the analysis:
+store_message(
+    sender_id,
+    f"{result}",
+    "bot",
+    "image_analysis",
+    {
+        "source_image_url": image_url,
+        "timestamp": get_current_time(),
+        "analysis_type": "general"
+    }
+)
                                         
                                         # Send the response back to user
                                         send_message(sender_id, result)
