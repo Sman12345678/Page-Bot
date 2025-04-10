@@ -190,7 +190,6 @@ def store_message(user_id, message, sender, message_type="text", metadata=None):
         raise
 
 def get_conversation_history(user_id):
-    """Get conversation history for a user"""
     try:
         with get_db_cursor() as c:
             c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', 
@@ -199,17 +198,23 @@ def get_conversation_history(user_id):
             
             if result and result[0]:
                 history = json.loads(result[0])
-                # Format history for model consumption
                 formatted_history = []
                 for msg in history:
                     entry = {
                         "role": msg["role"],
                         "content": msg["content"]
                     }
+                    
+                    # Improve the image and analysis representation
                     if msg.get("type") == "image":
-                        entry["content"] = "[User sent an image]"
+                        entry["content"] = "User sent an image"
+                        if msg.get("metadata", {}).get("url"):
+                            entry["content"] += f" from: {msg['metadata']['url']}"
                     elif msg.get("type") == "image_analysis":
-                        entry["content"] = f"[Bot's image analysis]: {msg['content']}"
+                        entry["content"] = f"Image Analysis Results: {msg['content']}"
+                        if msg.get("metadata", {}).get("source_image_url"):
+                            entry["content"] += f"\n(Analysis for image: {msg['metadata']['source_image_url']})"
+                    
                     formatted_history.append(entry)
                 return formatted_history
             return []
