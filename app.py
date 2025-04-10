@@ -162,12 +162,19 @@ def store_message(user_id, message, sender, message_type="text", metadata=None):
             else:
                 history = []
                 
-            history.append({
+            # Create history entry with message type and metadata
+            history_entry = {
                 "role": "user" if sender == "user" else "assistant",
                 "content": message,
                 "type": message_type,
                 "timestamp": current_time
-            })
+            }
+            
+            # Add metadata if provided
+            if metadata:
+                history_entry["metadata"] = metadata
+                
+            history.append(history_entry)
             
             # Limit history to last 20 messages
             if len(history) > 20:
@@ -182,50 +189,7 @@ def store_message(user_id, message, sender, message_type="text", metadata=None):
         logger.error(f"Failed to store message: {str(e)}")
         raise
 
-def store_image_analysis(user_id, image_url, analysis_result):
-    """Store image analysis results in database"""
-    try:
-        with get_db_cursor() as c:
-            current_time = get_current_time()
-            # Store the image analysis as a bot message
-            c.execute('''INSERT INTO conversations 
-                        (user_id, message, sender, message_type, metadata, timestamp)
-                        VALUES (?, ?, ?, ?, ?, ?)''',
-                     (user_id, 
-                      analysis_result, 
-                      "bot", 
-                      "image_analysis",
-                      json.dumps({"image_url": image_url}), 
-                      current_time))
-            
-            # Update user context with conversation history
-            c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', 
-                     (user_id,))
-            result = c.fetchone()
-            
-            history = json.loads(result[0]) if result and result[0] else []
-            
-            # Add bot's analysis to conversation history
-            history.append({
-                "role": "assistant",
-                "content": analysis_result,
-                "type": "image_analysis",
-                "timestamp": current_time
-            })
-            
-            # Limit history to last 20 messages
-            if len(history) > 20:
-                history = history[-20:]
-                
-            c.execute('''INSERT OR REPLACE INTO user_context 
-                        (user_id, last_interaction, conversation_history)
-                        VALUES (?, ?, ?)''',
-                     (user_id, current_time, json.dumps(history)))
-            
-    except Exception as e:
-        logger.error(f"Failed to store image analysis: {str(e)}")
-        raise
-        def get_conversation_history(user_id):
+def get_conversation_history(user_id):
     """Get conversation history for a user"""
     try:
         with get_db_cursor() as c:
@@ -234,7 +198,20 @@ def store_image_analysis(user_id, image_url, analysis_result):
             result = c.fetchone()
             
             if result and result[0]:
-                return json.loads(result[0])
+                history = json.loads(result[0])
+                # Format history for model consumption
+                formatted_history = []
+                for msg in history:
+                    entry = {
+                        "role": msg["role"],
+                        "content": msg["content"]
+                    }
+                    if msg.get("type") == "image":
+                        entry["content"] = "[User sent an image]"
+                    elif msg.get("type") == "image_analysis":
+                        entry["content"] = f"[Bot's image analysis]: {msg['content']}"
+                    formatted_history.append(entry)
+                return formatted_history
             return []
     except Exception as e:
         logger.error(f"Failed to get conversation history: {str(e)}")
@@ -481,7 +458,7 @@ def webhook():
                                 if attachment["type"] == "image":
                                     image_url = attachment["payload"]["url"]
                                     try:
-                                        # Store the image message from user
+                                        # Store user's image message with metadata
                                         store_message(
                                             sender_id, 
                                             "[IMAGE]", 
@@ -500,11 +477,13 @@ def webhook():
                                             "image"
                                         )
                                         
-                                        # Store the analysis result
-                                        store_image_analysis(
+                                        # Store bot's analysis response
+                                        store_message(
                                             sender_id,
-                                            image_url,
-                                            result if isinstance(result, str) else json.dumps(result)
+                                            result,
+                                            "bot",
+                                            "image_analysis",
+                                            {"source_image_url": image_url}
                                         )
                                         
                                         # Send the response back to user
