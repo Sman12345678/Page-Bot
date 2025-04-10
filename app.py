@@ -190,6 +190,7 @@ def store_message(user_id, message, sender, message_type="text", metadata=None):
         raise
 
 def get_conversation_history(user_id):
+    """Get conversation history for a user"""
     try:
         with get_db_cursor() as c:
             c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', 
@@ -198,23 +199,17 @@ def get_conversation_history(user_id):
             
             if result and result[0]:
                 history = json.loads(result[0])
+                # Format history for model consumption
                 formatted_history = []
                 for msg in history:
                     entry = {
                         "role": msg["role"],
                         "content": msg["content"]
                     }
-                    
-                    # Improve the image and analysis representation
                     if msg.get("type") == "image":
-                        entry["content"] = "User sent an image"
-                        if msg.get("metadata", {}).get("url"):
-                            entry["content"] += f" from: {msg['metadata']['url']}"
+                        entry["content"] = "[User sent an image]"
                     elif msg.get("type") == "image_analysis":
-                        entry["content"] = f"Image Analysis Results: {msg['content']}"
-                        if msg.get("metadata", {}).get("source_image_url"):
-                            entry["content"] += f"\n(Analysis for image: {msg['metadata']['source_image_url']})"
-                    
+                        entry["content"] = f"[Bot's image analysis]: {msg['content']}"
                     formatted_history.append(entry)
                 return formatted_history
             return []
@@ -463,27 +458,33 @@ def webhook():
                                 if attachment["type"] == "image":
                                     image_url = attachment["payload"]["url"]
                                     try:
-                                        # When storing the image message:
-store_message(
-    sender_id, 
-    f"[User shared an image for analysis]", 
-    "user", 
-    "image", 
-    {"url": image_url, "timestamp": get_current_time()}
-)
-
-# When storing the analysis:
-store_message(
-    sender_id,
-    f"{result}",
-    "bot",
-    "image_analysis",
-    {
-        "source_image_url": image_url,
-        "timestamp": get_current_time(),
-        "analysis_type": "general"
-    }
-)
+                                        # Store user's image message with metadata
+                                        store_message(
+                                            sender_id, 
+                                            "[IMAGE]", 
+                                            "user", 
+                                            "image", 
+                                            {"url": image_url}
+                                        )
+                                        
+                                        response = requests.get(image_url)
+                                        image_data = response.content
+                                        
+                                        # Get image analysis from messageHandler
+                                        result = messageHandler.handle_attachment(
+                                            sender_id, 
+                                            image_data, 
+                                            "image"
+                                        )
+                                        
+                                        # Store bot's analysis response
+                                        store_message(
+                                            sender_id,
+                                            result,
+                                            "bot",
+                                            "image_analysis",
+                                            {"source_image_url": image_url}
+                                        )
                                         
                                         # Send the response back to user
                                         send_message(sender_id, result)
