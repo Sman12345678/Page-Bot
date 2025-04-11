@@ -1,7 +1,7 @@
 import os
 import logging
 import sqlite3
-from flask import Flask, request, jsonify, render_template, g
+from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
 from flask_cors import CORS
 import requests
@@ -11,7 +11,6 @@ from io import BytesIO
 import json
 import traceback
 from datetime import datetime, timezone
-from contextlib import contextmanager
 
 # Load environment variables
 load_dotenv()
@@ -38,37 +37,6 @@ PREFIX = os.getenv("PREFIX", "/")
 API_VERSION = "v22.0"
 INITIALIZED = False
 start_time = time.time()
-
-# Database Configuration
-DATABASE = 'bot_memory.db'
-
-def get_db():
-    """Get database connection for the current context"""
-    if 'db' not in g:
-        g.db = sqlite3.connect(DATABASE)
-        g.db.row_factory = sqlite3.Row
-    return g.db
-
-@app.teardown_appcontext
-def close_db(error):
-    """Close database connection at the end of request"""
-    db = g.pop('db', None)
-    if db is not None:
-        db.close()
-
-@contextmanager
-def get_db_cursor():
-    """Context manager for database operations"""
-    db = get_db()
-    cursor = db.cursor()
-    try:
-        yield cursor
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        raise e
-    finally:
-        cursor.close()
 
 class FacebookAPIError(Exception):
     """Custom exception for Facebook API errors"""
@@ -98,45 +66,41 @@ def validate_environment():
 def init_db():
     """Initialize SQLite database with improved schema"""
     try:
-        with get_db_cursor() as c:
-            # Create tables with indexes for better performance
-            c.execute('''CREATE TABLE IF NOT EXISTS conversations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT NOT NULL,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                message TEXT NOT NULL,
-                sender TEXT NOT NULL,
-                message_type TEXT DEFAULT 'text',
-                metadata TEXT
-            )''')
-            
-            # Add index for faster user_id queries
-            c.execute('''CREATE INDEX IF NOT EXISTS idx_conversations_user_id 
-                        ON conversations(user_id)''')
-            
-            c.execute('''CREATE TABLE IF NOT EXISTS user_context (
-                user_id TEXT PRIMARY KEY,
-                last_interaction DATETIME,
-                conversation_state TEXT,
-                user_preferences TEXT,
-                conversation_history TEXT
-            )''')
-            
-            c.execute('''CREATE TABLE IF NOT EXISTS message_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                sender_id TEXT,
-                message_type TEXT,
-                status TEXT,
-                error_message TEXT,
-                metadata TEXT
-            )''')
-            
-            # Add index for faster sender_id queries
-            c.execute('''CREATE INDEX IF NOT EXISTS idx_message_logs_sender_id 
-                        ON message_logs(sender_id)''')
-            
+        conn = sqlite3.connect('bot_memory.db', check_same_thread=False)
+        c = conn.cursor()
+        
+        # Create tables
+        c.execute('''CREATE TABLE IF NOT EXISTS conversations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            message TEXT NOT NULL,
+            sender TEXT NOT NULL,
+            message_type TEXT DEFAULT 'text',
+            metadata TEXT
+        )''')
+        
+        c.execute('''CREATE TABLE IF NOT EXISTS user_context (
+            user_id TEXT PRIMARY KEY,
+            last_interaction DATETIME,
+            conversation_state TEXT,
+            user_preferences TEXT,
+            conversation_history TEXT
+        )''')
+        
+        c.execute('''CREATE TABLE IF NOT EXISTS message_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            sender_id TEXT,
+            message_type TEXT,
+            status TEXT,
+            error_message TEXT,
+            metadata TEXT
+        )''')
+        
+        conn.commit()
         logger.info("Database initialized successfully")
+        return conn
     except Exception as e:
         logger.error(f"Database initialization failed: {str(e)}")
         raise
@@ -144,37 +108,66 @@ def init_db():
 def store_message(user_id, message, sender, message_type="text", metadata=None):
     """Store message in database"""
     try:
+        c = conn.cursor()
+        c.execute('''INSERT INTO conversations 
+                    (user_id, message, sender, message_type, metadata, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?)''',
+                 (user_id, message, sender, message_type, 
+                  json.dumps(metadata) if metadata else None, get_current_time()))
+        
+        # Update user context with conversation history
+        c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', (user_id,))
+        result = c.fetchone()
+        
+        if result:
+            history = json.loads(result[0]) if result[0] else []
+        else:
+            history = []
+            
+        history.append({"role": "user" if sender == "user" else "assistant", "content": message})
+        
+        # Limit history to last 10 messages
+        if len(history) > 20:
+            history = history[-20:]
+            
+        c.execute('''INSERT OR REPLACE INTO user_context 
+                    (user_id, last_interaction, conversation_history)
+                    VALUES (?, ?, ?)''',
+                 (user_id, get_current_time(), json.dumps(history)))
+        
+        conn.commit()
+    except Exception as e:
+        logger.error(f"Failed to store message: {str(e)}")
+def store_image_analysis(user_id, image_url, analysis_result):
+    """Store image analysis results in database"""
+    try:
         with get_db_cursor() as c:
             current_time = get_current_time()
+            # Store the image analysis as a bot message
             c.execute('''INSERT INTO conversations 
                         (user_id, message, sender, message_type, metadata, timestamp)
                         VALUES (?, ?, ?, ?, ?, ?)''',
-                     (user_id, message, sender, message_type, 
-                      json.dumps(metadata) if metadata else None, current_time))
+                     (user_id, 
+                      analysis_result, 
+                      "bot", 
+                      "image_analysis",
+                      json.dumps({"image_url": image_url}), 
+                      current_time))
             
             # Update user context with conversation history
             c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', 
                      (user_id,))
             result = c.fetchone()
             
-            if result and result[0]:
-                history = json.loads(result[0])
-            else:
-                history = []
-                
-            # Create history entry with message type and metadata
-            history_entry = {
-                "role": "user" if sender == "user" else "assistant",
-                "content": message,
-                "type": message_type,
-                "timestamp": current_time
-            }
+            history = json.loads(result[0]) if result and result[0] else []
             
-            # Add metadata if provided
-            if metadata:
-                history_entry["metadata"] = metadata
-                
-            history.append(history_entry)
+            # Add bot's analysis to conversation history
+            history.append({
+                "role": "assistant",
+                "content": analysis_result,
+                "type": "image_analysis",
+                "timestamp": current_time
+            })
             
             # Limit history to last 20 messages
             if len(history) > 20:
@@ -186,33 +179,19 @@ def store_message(user_id, message, sender, message_type="text", metadata=None):
                      (user_id, current_time, json.dumps(history)))
             
     except Exception as e:
-        logger.error(f"Failed to store message: {str(e)}")
+        logger.error(f"Failed to store image analysis: {str(e)}")
         raise
 
 def get_conversation_history(user_id):
     """Get conversation history for a user"""
     try:
-        with get_db_cursor() as c:
-            c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', 
-                     (user_id,))
-            result = c.fetchone()
-            
-            if result and result[0]:
-                history = json.loads(result[0])
-                # Format history for model consumption
-                formatted_history = []
-                for msg in history:
-                    entry = {
-                        "role": msg["role"],
-                        "content": msg["content"]
-                    }
-                    if msg.get("type") == "image":
-                        entry["content"] = "[User sent an image]"
-                    elif msg.get("type") == "image_analysis":
-                        entry["content"] = f"[Bot's image analysis]: {msg['content']}"
-                    formatted_history.append(entry)
-                return formatted_history
-            return []
+        c = conn.cursor()
+        c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', (user_id,))
+        result = c.fetchone()
+        
+        if result and result[0]:
+            return json.loads(result[0])
+        return []
     except Exception as e:
         logger.error(f"Failed to get conversation history: {str(e)}")
         return []
@@ -220,15 +199,15 @@ def get_conversation_history(user_id):
 def log_message_status(sender_id, message_type, status, error_message=None, metadata=None):
     """Log message status to database"""
     try:
-        with get_db_cursor() as c:
-            c.execute('''INSERT INTO message_logs 
-                        (sender_id, message_type, status, error_message, metadata, timestamp)
-                        VALUES (?, ?, ?, ?, ?, ?)''',
-                     (sender_id, message_type, status, error_message, 
-                      json.dumps(metadata) if metadata else None, get_current_time()))
+        c = conn.cursor()
+        c.execute('''INSERT INTO message_logs 
+                    (sender_id, message_type, status, error_message, metadata)
+                    VALUES (?, ?, ?, ?, ?)''',
+                 (sender_id, message_type, status, error_message, 
+                  json.dumps(metadata) if metadata else None))
+        conn.commit()
     except Exception as e:
         logger.error(f"Failed to log message status: {str(e)}")
-        raise
 
 def upload_image_to_graph(image_data):
     """Upload image to Facebook Graph API"""
@@ -323,7 +302,9 @@ def send_message(recipient_id, message):
             logger.debug(f"Facebook API Response: {json.dumps(response_json, indent=2)}")
 
             if response.status_code == 200:
+                # Store message in database
                 store_message(recipient_id, message_content, "bot", message_type)
+                
                 log_message_status(recipient_id, message_type, "success", metadata=response_json)
                 logger.info(f"Successfully sent {message_type} message to {recipient_id}")
             else:
@@ -331,6 +312,7 @@ def send_message(recipient_id, message):
                 log_message_status(recipient_id, message_type, "failed", error_msg, response_json)
                 logger.error(f"Failed to send message: {error_msg}")
                 
+                # Try to send error message if original message fails
                 if message_type == "image":
                     try:
                         error_data = {
@@ -450,50 +432,27 @@ def webhook():
                     logger.debug(f"Processing message from {sender_id}: {message_text}")
 
                     try:
+                        # Store user message in database
+                        store_message(sender_id, message_text, "user")
+                        
                         if message_text.startswith(PREFIX):
-                            store_message(sender_id, message_text, "user")
                             handle_command_message(sender_id, message_text)
                         elif attachments:
                             for attachment in attachments:
                                 if attachment["type"] == "image":
                                     image_url = attachment["payload"]["url"]
                                     try:
-                                        # Store user's image message with metadata
-                                        store_message(
-                                            sender_id, 
-                                            "[IMAGE]", 
-                                            "user", 
-                                            "image", 
-                                            {"url": image_url}
-                                        )
-                                        
                                         response = requests.get(image_url)
                                         image_data = response.content
-                                        
-                                        # Get image analysis from messageHandler
-                                        result = messageHandler.handle_attachment(
-                                            sender_id, 
-                                            image_data, 
-                                            "image"
-                                        )
-                                        
-                                        # Store bot's analysis response
-                                        store_message(
-                                            sender_id,
-                                            result,
-                                            "bot",
-                                            "image_analysis",
-                                            {"source_image_url": image_url}
-                                        )
-                                        
-                                        # Send the response back to user
+                                        # Store attachment message
+                                        store_message(sender_id, "[IMAGE]", "user", "image")
+                                        result = messageHandler.handle_attachment(sender_id, image_data, "image")
                                         send_message(sender_id, result)
-                                        
                                     except Exception as e:
                                         logger.error(f"Error processing image: {str(e)}")
                                         send_message(sender_id, "Error processing image")
                         elif message_text:
-                            store_message(sender_id, message_text, "user")
+                            # Get conversation history for context
                             history = get_conversation_history(sender_id)
                             response = messageHandler.handle_text_message(sender_id, message_text, history)
                             send_message(sender_id, response)
@@ -521,6 +480,7 @@ def api():
         return jsonify({"error": "No query provided"}), 400
 
     try:
+        # Use a fixed user_id for API requests
         api_user_id = "api_user_" + str(int(time.time()))
         response = messageHandler.handle_text_message(api_user_id, query, [])
         return jsonify({"response": response})
@@ -549,7 +509,7 @@ def get_bot_uptime():
 # Initialize the application
 try:
     validate_environment()
-    init_db()
+    conn = init_db()
     INITIALIZED = True
     logger.info("Application initialized successfully")
 except Exception as e:
