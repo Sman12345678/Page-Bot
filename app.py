@@ -483,10 +483,9 @@ def webhook():
 def home():
     """Render home page"""
     return render_template('index.html')
-
 @app.route('/api', methods=['GET'])
 def api():
-    """Handle API requests with database integration"""
+    """Handle API requests"""
     # Get query and user_id parameters
     query = request.args.get('query')
     user_id = request.args.get('user_id')
@@ -499,11 +498,6 @@ def api():
         # Use provided user_id or generate one if not provided
         if not user_id:
             user_id = "api_user_" + str(int(time.time()))
-            
-        current_time = get_current_time()
-        
-        # Store the user's message in the database
-        store_message(user_id, query, "user", "text")
         
         # Get conversation history for the user
         history = get_conversation_history(user_id)
@@ -511,26 +505,15 @@ def api():
         # Process the query
         response = messageHandler.handle_text_message(user_id, query, history)
         
-        # Store the bot's response in the database
-        store_message(user_id, response, "bot", "text")
-        
         return jsonify({
             "response": response,
             "user_id": user_id,
-            "timestamp": current_time
+            "timestamp": get_current_time()
         })
     except Exception as e:
         logger.error(f"API error: {str(e)}")
-        error_msg = str(e)
-        
-        try:
-            # Log the error in the database
-            log_message_status(user_id, "api_error", "failed", error_msg)
-        except Exception as db_error:
-            logger.error(f"Database error while logging API error: {str(db_error)}")
-        
         return jsonify({
-            "error": error_msg,
+            "error": str(e),
             "timestamp": get_current_time()
         }), 500
 
@@ -557,7 +540,8 @@ try:
     validate_environment()
     conn = init_db()
     INITIALIZED = True
-    logger.info("Application initialized successfully")
+    logger.info("🎉 Application initialized successfully")
+    logger.info("==Made By Suleiman with 💜==")
 except Exception as e:
     logger.critical(f"Failed to initialize application: {str(e)}")
     raise
