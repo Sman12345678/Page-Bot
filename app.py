@@ -139,49 +139,60 @@ def store_message(user_id, message, sender, message_type="text", metadata=None):
     except Exception as e:
         logger.error(f"Failed to store message: {str(e)}")
 def store_image_analysis(user_id, image_url, analysis_result):
-    """Store image analysis results in database"""
+    """Store image analysis results in database and update conversation history"""
     try:
-        with get_db_cursor() as c:
-            current_time = get_current_time()
-            # Store the image analysis as a bot message
-            c.execute('''INSERT INTO conversations 
-                        (user_id, message, sender, message_type, metadata, timestamp)
-                        VALUES (?, ?, ?, ?, ?, ?)''',
-                     (user_id, 
-                      analysis_result, 
-                      "bot", 
-                      "image_analysis",
-                      json.dumps({"image_url": image_url}), 
-                      current_time))
+        c = conn.cursor()  # Use the global conn variable instead of get_db_cursor
+        current_time = get_current_time()
+        
+        # Store the image analysis as a bot message
+        c.execute('''INSERT INTO conversations 
+                    (user_id, message, sender, message_type, metadata, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?)''',
+                 (user_id, 
+                  analysis_result, 
+                  "bot", 
+                  "image_analysis",
+                  json.dumps({"image_url": image_url}), 
+                  current_time))
+        
+        # Update user context with conversation history
+        c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', 
+                 (user_id,))
+        result = c.fetchone()
+        
+        history = json.loads(result[0]) if result and result[0] else []
+        
+        # Add user's image message to conversation history
+        history.append({
+            "role": "user",
+            "content": "[IMAGE]",
+            "type": "image",
+            "image_url": image_url,
+            "timestamp": current_time
+        })
+        
+        # Add bot's analysis to conversation history
+        history.append({
+            "role": "assistant",
+            "content": analysis_result,
+            "type": "image_analysis",
+            "timestamp": current_time
+        })
+        
+        # Limit history to last 20 messages
+        if len(history) > 20:
+            history = history[-20:]
             
-            # Update user context with conversation history
-            c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', 
-                     (user_id,))
-            result = c.fetchone()
-            
-            history = json.loads(result[0]) if result and result[0] else []
-            
-            # Add bot's analysis to conversation history
-            history.append({
-                "role": "assistant",
-                "content": analysis_result,
-                "type": "image_analysis",
-                "timestamp": current_time
-            })
-            
-            # Limit history to last 20 messages
-            if len(history) > 20:
-                history = history[-20:]
-                
-            c.execute('''INSERT OR REPLACE INTO user_context 
-                        (user_id, last_interaction, conversation_history)
-                        VALUES (?, ?, ?)''',
-                     (user_id, current_time, json.dumps(history)))
-            
+        c.execute('''INSERT OR REPLACE INTO user_context 
+                    (user_id, last_interaction, conversation_history)
+                    VALUES (?, ?, ?)''',
+                 (user_id, current_time, json.dumps(history)))
+        
+        conn.commit()
+        
     except Exception as e:
         logger.error(f"Failed to store image analysis: {str(e)}")
         raise
-
 def get_conversation_history(user_id):
     """Get conversation history for a user"""
     try:
