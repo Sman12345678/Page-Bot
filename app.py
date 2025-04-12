@@ -486,19 +486,53 @@ def home():
 
 @app.route('/api', methods=['GET'])
 def api():
-    """Handle API requests"""
+    """Handle API requests with database integration"""
+    # Get query and user_id parameters
     query = request.args.get('query')
+    user_id = request.args.get('user_id')
+    
+    # Validate query parameter
     if not query:
         return jsonify({"error": "No query provided"}), 400
-
+    
     try:
-        # Use a fixed user_id for API requests
-        api_user_id = "api_user_" + str(int(time.time()))
-        response = messageHandler.handle_text_message(api_user_id, query, [])
-        return jsonify({"response": response})
+        # Use provided user_id or generate one if not provided
+        if not user_id:
+            user_id = "api_user_" + str(int(time.time()))
+            
+        current_time = get_current_time()
+        
+        # Store the user's message in the database
+        store_message(user_id, query, "user", "text")
+        
+        # Get conversation history for the user
+        history = get_conversation_history(user_id)
+        
+        # Process the query
+        response = messageHandler.handle_text_message(user_id, query, history)
+        
+        # Store the bot's response in the database
+        store_message(user_id, response, "bot", "text")
+        
+        return jsonify({
+            "response": response,
+            "user_id": user_id,
+            "timestamp": current_time
+        })
     except Exception as e:
         logger.error(f"API error: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        error_msg = str(e)
+        
+        try:
+            # Log the error in the database
+            log_message_status(user_id, "api_error", "failed", error_msg)
+        except Exception as db_error:
+            logger.error(f"Database error while logging API error: {str(db_error)}")
+        
+        return jsonify({
+            "error": error_msg,
+            "timestamp": get_current_time()
+        }), 500
 
 @app.route('/status', methods=['GET'])
 def status():
