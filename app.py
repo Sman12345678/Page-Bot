@@ -447,6 +447,7 @@ def webhook():
                                         # Store attachment message
                                         store_message(sender_id, "[IMAGE]", "user", "image")
                                         result = messageHandler.handle_attachment(sender_id, image_data, "image")
+                                        store_image_analysis(sender_id, image_url, result)
                                         send_message(sender_id, result)
                                     except Exception as e:
                                         logger.error(f"Error processing image: {str(e)}")
