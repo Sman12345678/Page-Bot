@@ -138,61 +138,7 @@ def store_message(user_id, message, sender, message_type="text", metadata=None):
         conn.commit()
     except Exception as e:
         logger.error(f"Failed to store message: {str(e)}")
-def store_image_analysis(user_id, image_url, analysis_result):
-    """Store image analysis results in database and update conversation history"""
-    try:
-        c = conn.cursor()  # Use the global conn variable instead of get_db_cursor
-        current_time = get_current_time()
-        
-        # Store the image analysis as a bot message
-        c.execute('''INSERT INTO conversations 
-                    (user_id, message, sender, message_type, metadata, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?)''',
-                 (user_id, 
-                  analysis_result, 
-                  "bot", 
-                  "image_analysis",
-                  json.dumps({"image_url": image_url}), 
-                  current_time))
-        
-        # Update user context with conversation history
-        c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', 
-                 (user_id,))
-        result = c.fetchone()
-        
-        history = json.loads(result[0]) if result and result[0] else []
-        
-        # Add user's image message to conversation history
-        history.append({
-            "role": "user",
-            "content": "[IMAGE]",
-            "type": "image",
-            "image_url": image_url,
-            "timestamp": current_time
-        })
-        
-        # Add bot's analysis to conversation history
-        history.append({
-            "role": "assistant",
-            "content": analysis_result,
-            "type": "image_analysis",
-            "timestamp": current_time
-        })
-        
-        # Limit history to last 20 messages
-        if len(history) > 20:
-            history = history[-20:]
-            
-        c.execute('''INSERT OR REPLACE INTO user_context 
-                    (user_id, last_interaction, conversation_history)
-                    VALUES (?, ?, ?)''',
-                 (user_id, current_time, json.dumps(history)))
-        
-        conn.commit()
-        
-    except Exception as e:
-        logger.error(f"Failed to store image analysis: {str(e)}")
-        raise
+
 def get_conversation_history(user_id):
     """Get conversation history for a user"""
     try:
@@ -267,84 +213,79 @@ def send_message(recipient_id, message):
     logger.debug(f"Recipient ID: {recipient_id}")
     logger.debug(f"Message type: {type(message)}")
     logger.debug(f"Message content: {message}")
-
-    messages_to_send = []
-    if isinstance(message, dict):
-        if message.get("type") == "image":
-            data = {
-                "recipient": {"id": recipient_id},
-                "message": {
-                    "attachment": {
-                        "type": "image",
-                        "payload": {
-                            "attachment_id": message["content"]
+    
+    try:
+        if isinstance(message, dict):
+            if message.get("type") == "image":
+                data = {
+                    "recipient": {"id": recipient_id},
+                    "message": {
+                        "attachment": {
+                            "type": "image",
+                            "payload": {
+                                "attachment_id": message["content"]
+                            }
                         }
                     }
                 }
-            }
-            messages_to_send.append((data, "image", f"[IMAGE: {message['content']}]"))
-            logger.debug(f"Prepared image message with attachment_id: {message['content']}")
+                message_type = "image"
+                message_content = f"[IMAGE: {message['content']}]"
+                logger.debug(f"Prepared image message with attachment_id: {message['content']}")
+            else:
+                logger.error(f"Unsupported message type: {message.get('type')}")
+                return False
         else:
-            logger.error(f"Unsupported message type: {message.get('type')}")
-            return False
-    else:
-        if not isinstance(message, str):
-            message = str(message)
-
-        # Split message into parts if it exceeds 2000 characters
-        parts = [message[i:i + 2000] for i in range(0, len(message), 2000)]
-        for part in parts:
+            if not isinstance(message, str):
+                message = str(message)
+            
             data = {
                 "recipient": {"id": recipient_id},
-                "message": {"text": part}
+                "message": {"text": message}
             }
-            messages_to_send.append((data, "text", part))
+            message_type = "text"
+            message_content = message
             logger.debug("Prepared text message")
 
-    success = True
-    for data, message_type, message_content in messages_to_send:
-        try:
-            logger.debug(f"Sending request to Facebook API: {json.dumps(data, indent=2)}")
+        logger.debug(f"Sending request to Facebook API: {json.dumps(data, indent=2)}")
         
-            response = requests.post(api_url, params=params, headers=headers, json=data)
-            response_json = response.json() if response.text else {}
+        response = requests.post(api_url, params=params, headers=headers, json=data)
+        response_json = response.json() if response.text else {}
+        
+        logger.debug(f"Facebook API Response Status: {response.status_code}")
+        logger.debug(f"Facebook API Response: {json.dumps(response_json, indent=2)}")
+
+        if response.status_code == 200:
+            # Store message in database
+            store_message(recipient_id, message_content, "bot", message_type)
             
-            logger.debug(f"Facebook API Response Status: {response.status_code}")
-            logger.debug(f"Facebook API Response: {json.dumps(response_json, indent=2)}")
+            log_message_status(recipient_id, message_type, "success", metadata=response_json)
+            logger.info(f"Successfully sent {message_type} message to {recipient_id}")
+            return True
+        else:
+            error_msg = response_json.get("error", {}).get("message", "Unknown error")
+            log_message_status(recipient_id, message_type, "failed", error_msg, response_json)
+            logger.error(f"Failed to send message: {error_msg}")
+            
+            # Try to send error message if original message fails
+            if message_type == "image":
+                try:
+                    error_data = {
+                        "recipient": {"id": recipient_id},
+                        "message": {"text": f"Failed to send image: {error_msg}"}
+                    }
+                    requests.post(api_url, params=params, headers=headers, json=error_data)
+                except:
+                    pass
+            return False
 
-            if response.status_code == 200:
-                # Store message in database
-                store_message(recipient_id, message_content, "bot", message_type)
-                
-                log_message_status(recipient_id, message_type, "success", metadata=response_json)
-                logger.info(f"Successfully sent {message_type} message to {recipient_id}")
-            else:
-                error_msg = response_json.get("error", {}).get("message", "Unknown error")
-                log_message_status(recipient_id, message_type, "failed", error_msg, response_json)
-                logger.error(f"Failed to send message: {error_msg}")
-                
-                # Try to send error message if original message fails
-                if message_type == "image":
-                    try:
-                        error_data = {
-                            "recipient": {"id": recipient_id},
-                            "message": {"text": f"Failed to send image: {error_msg}"}
-                        }
-                        requests.post(api_url, params=params, headers=headers, json=error_data)
-                    except:
-                        pass
-                success = False
-
-        except Exception as e:
-            error_msg = str(e)
-            log_message_status(recipient_id, "error", error_msg)
-            logger.error(f"Error in send_message: {error_msg}")
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            success = False
-        finally:
-            logger.debug("=== END SEND MESSAGE ===")
-
-    return success
+    except Exception as e:
+        error_msg = str(e)
+        log_message_status(recipient_id, "error", error_msg)
+        logger.error(f"Error in send_message: {error_msg}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return False
+    finally:
+        logger.debug("=== END SEND MESSAGE ===")
 
 def process_command_response(sender_id, response):
     """Process command response and send appropriate message"""
@@ -458,8 +399,14 @@ def webhook():
                                         # Store attachment message
                                         store_message(sender_id, "[IMAGE]", "user", "image")
                                         result = messageHandler.handle_attachment(sender_id, image_data, "image")
-                                        store_image_analysis(sender_id, image_url, result)
                                         send_message(sender_id, result)
+                                        # Store bot's analysis as a message
+                                        store_message(sender_id, result, "bot", "text")
+
+
+
+
+                                       
                                     except Exception as e:
                                         logger.error(f"Error processing image: {str(e)}")
                                         send_message(sender_id, "Error processing image")
@@ -483,39 +430,22 @@ def webhook():
 def home():
     """Render home page"""
     return render_template('index.html')
+
 @app.route('/api', methods=['GET'])
 def api():
     """Handle API requests"""
-    # Get query and user_id parameters
     query = request.args.get('query')
-    user_id = request.args.get('user_id')
-    
-    # Validate query parameter
     if not query:
         return jsonify({"error": "No query provided"}), 400
-    
+
     try:
-        # Use provided user_id or generate one if not provided
-        if not user_id:
-            user_id = "api_user_" + str(int(time.time()))
-        
-        # Get conversation history for the user
-        history = get_conversation_history(user_id)
-        
-        # Process the query
-        response = messageHandler.handle_text_message(user_id, query, history)
-        
-        return jsonify({
-            "response": response,
-            "user_id": user_id,
-            "timestamp": get_current_time()
-        })
+        # Use a fixed user_id for API requests
+        api_user_id = "api_user_" + str(int(time.time()))
+        response = messageHandler.handle_text_message(api_user_id, query, [])
+        return jsonify({"response": response})
     except Exception as e:
         logger.error(f"API error: {str(e)}")
-        return jsonify({
-            "error": str(e),
-            "timestamp": get_current_time()
-        }), 500
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/status', methods=['GET'])
 def status():
@@ -540,8 +470,7 @@ try:
     validate_environment()
     conn = init_db()
     INITIALIZED = True
-    logger.info("🎉 Application initialized successfully")
-    logger.info("==Made By Suleiman with 💜==")
+    logger.info("🎉Application initialized successfully")
 except Exception as e:
     logger.critical(f"Failed to initialize application: {str(e)}")
     raise
