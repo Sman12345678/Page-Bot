@@ -430,18 +430,31 @@ def webhook():
 def home():
     """Render home page"""
     return render_template('index.html')
-
 @app.route('/api', methods=['GET'])
 def api():
     """Handle API requests"""
     query = request.args.get('query')
+    uid = request.args.get('uid')  # Get the user ID from the request
+    
     if not query:
         return jsonify({"error": "No query provided"}), 400
 
     try:
-        # Use a fixed user_id for API requests
-        api_user_id = "api_user_" + str(int(time.time()))
-        response = messageHandler.handle_text_message(api_user_id, query, [])
+        # Use provided uid or generate a default one
+        user_id = uid if uid else f"api_user_{str(int(time.time()))}"
+        
+        # Store the user's message in database
+        store_message(user_id, query, "user", "text")
+        
+        # Get conversation history for context
+        history = get_conversation_history(user_id)
+        
+        # Process the message
+        response = messageHandler.handle_text_message(user_id, query, history)
+        
+        # Store the bot's response in database
+        store_message(user_id, response, "bot", "text")
+        
         return jsonify({"response": response})
     except Exception as e:
         logger.error(f"API error: {str(e)}")
