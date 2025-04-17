@@ -130,6 +130,7 @@ def handle_text_message(user_id, user_message, history=None):
 
 def handle_text_command(command_name, message):
     """Handle text commands from CMD folder"""
+    command_name=command_name.lower()
     try:
         cmd_module = importlib.import_module(f"CMD.{command_name}")
         return cmd_module.execute(message)
@@ -142,19 +143,26 @@ def handle_attachment(user_id, attachment_data, attachment_type="image"):
         return "🚫 Unsupported attachment type. Please send an image."
 
     logger.info("Processing image attachment from %s", user_id)
-    
+
     try:
-        # Initialize Gemini for image analysis with same key, change to flash bro if you wish 
+        # Initialize Gemini for image analysis with same key
         genai.configure(api_key=os.getenv("GEMINI_TEXT_API_KEY"))
         model = genai.GenerativeModel("gemini-1.5-pro")
-        
+
         response = model.generate_content([
             IMAGE_ANALYSIS_PROMPT,
             {'mime_type': 'image/jpeg', 'data': attachment_data}
         ])
 
-        return f"""🖼️ Image Analysis:
-{response.text}"""
+        analysis_result = f"🖼️ Image Analysis:\n{response.text}"
+
+        # Get the chat instance for the user
+        chat = get_or_create_chat(user_id)
+
+        # Add the image analysis result to the chat history
+        chat.send_message(analysis_result)
+
+        return analysis_result
 
     except Exception as e:
         logger.error(f"Image analysis error: {str(e)}")
