@@ -438,7 +438,7 @@ def webhook():
                                         response = requests.get(image_url)
                                         image_data = response.content
                                         # Store attachment message with the image URL
-                                        store_message(sender_id, f"[User sent an image: {image_url}]", "user", "image")
+                                        store_message(sender_id, f"[User sent an image: {image_url}]", "user", "text")
                                         # Process the image and get analysis
                                         result = messageHandler.handle_attachment(sender_id, image_data, "image")
                                         # Store bot's analysis with special format
