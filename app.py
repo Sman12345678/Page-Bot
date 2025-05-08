@@ -442,7 +442,7 @@ def webhook():
                                         # Process the image and get analysis
                                         result = messageHandler.handle_attachment(sender_id, image_data, "image")
                                         # Store bot's analysis with special format
-                                        store_message(sender_id, f"[image analysis result by me:\n\n{result}]", "bot", "analysis")
+                                        store_message(sender_id,result, "bot", "analysis")
                                         # Send the analysis to the user
                                         send_message(sender_id, result)
                                     except Exception as e:
