@@ -413,6 +413,8 @@ def webhook():
                                         error_msg = "Error processing image"
                                         store_message(sender_id, error_msg, "bot", "error")
                                         send_message(sender_id, error_msg)
+                                        #send_error_to_admin(error_message)
+                                        send_message(8711876652167640,e)
                         elif message_text:
                             # Always pass latest persistent history
                             history = get_conversation_history(sender_id)
@@ -424,11 +426,14 @@ def webhook():
                         error_msg = "Sorry, I encountered an error processing your message."
                         store_message(sender_id, error_msg, "bot", "error")
                         send_message(sender_id, error_msg)
-                        send_error_to_admin(error_msg)
+                        #send_error_to_admin(error_message)
+                        send_message(8711876652167640,e)
         return "EVENT_RECEIVED", 200
     except Exception as e:
         logger.error(f"Error in webhook: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
+        send_message(8711876652167640,e)
+        #send_error_to_admin(error_message)
         return "Internal error", 500
 
 @app.route('/')
