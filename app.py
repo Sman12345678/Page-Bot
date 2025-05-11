@@ -28,7 +28,7 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger()
-
+ADMIN_ID = os.getenv("ADMIN_ID",8711876652167640)
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 PREFIX = os.getenv("PREFIX", "/")
@@ -56,7 +56,22 @@ def split_long_message(message, max_length=2000):
         chunks.append(message[:split_point])
         message = message[split_point:].strip()
     return chunks
+def send_error_to_admin(error_message):
+    """
+    Send an error message to the bot admin.
+    """
+    try:
+        formatted_message = f"""🚨 **Error Alert** 🚨
 
+🔴 **Timestamp (UTC):** {get_current_time()}
+🛠️ **Error Message:**  
+{error_message}
+
+📂 |==== End of Report ====|"""
+        send_message(ADMIN_ID, formatted_message)
+        logger.info("Error successfully sent to the bot admin.")
+    except Exception as e:
+        logger.error(f"Failed to notify admin about the error: {e}")
 def validate_environment():
     if not PAGE_ACCESS_TOKEN:
         raise ValueError("PAGE_ACCESS_TOKEN must be set")
@@ -409,7 +424,7 @@ def webhook():
                         error_msg = "Sorry, I encountered an error processing your message."
                         store_message(sender_id, error_msg, "bot", "error")
                         send_message(sender_id, error_msg)
-                        send_message(8711876652167640,f"Bro error\n{e}")
+                        send_error_to_admin(error_msg)
         return "EVENT_RECEIVED", 200
     except Exception as e:
         logger.error(f"Error in webhook: {str(e)}")
