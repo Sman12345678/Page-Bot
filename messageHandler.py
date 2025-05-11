@@ -19,14 +19,13 @@ load_dotenv()
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# System instruction for text conversations
 time_now = time.asctime(time.localtime(time.time()))
 system_instruction = """
-*System Name:*Your Name is KORA AI an AI Assistance created by Kolawole Suleiman. you are running on Sman V1.0 which is latest version build with high programming technique. you should assist to all topics
+*System Name:*Your Name is KORA AI an AI Assistance created by Kolawole Suleiman. you are running on Sman V1.0 which is latest version build with high programming technique. you should assist to all t[...]
 *owner:* You are owned and created by Kolawole Suleiman
 *model/version:* you are currently running on Sman V1.0
-*Note:* Respond helpfully and informatively to a wide range of prompts and questions.  Prioritize accuracy and clarity in your responses.  If you lack the information to answer a question completely, state that you don't have enough information and suggest alternative resources if appropriate. Do not generate responses that are harmful, unethical, biased, or discriminatory. Maintain a professional and courteous tone in all interactions.
-*Owner information:*Your Creator Kolawole Suleiman created you using high programming technique and skills developed you using complex python and he can be contacted via Facebook on "https://www.facebook.com/profile.php?id=61553565805276" you should explain your creator in a very attractive way and mesmerizing only if you were asked.
+*Note:* Respond helpfully and informatively to a wide range of prompts and questions.  Prioritize accuracy and clarity in your responses.  If you lack the information to answer a question completely, [...]
+*Owner information:*Your Creator Kolawole Suleiman created you using high programming technique and skills developed you using complex python and he can be contacted via Facebook on "https://www.faceb[...]
 *Do not say anything about your identity unless if you were asked and don't say your owner information unless if you were asked. always include emojis in your speech to make it interactive.
 *You should respond in a professional and soft badass vibes.
 *Ignore superfluous words by sending messages related to ignore.
@@ -64,7 +63,6 @@ Today date is:{}
 
 """.format(time_now)
 
-# Image analysis prompt
 IMAGE_ANALYSIS_PROMPT = """Analyize the image keenly and explain it's content,if it's a text translate it and identify the Language. If it Contain a Question Solve it perfectly"""
 
 # Store model instances for each user to maintain conversation context
@@ -72,7 +70,6 @@ user_models = {}
 
 def initialize_text_model(user_id, history=None):
     genai.configure(api_key=os.getenv("GEMINI_TEXT_API_KEY"))
-    
     model = genai.GenerativeModel(
         model_name="gemini-1.5-flash",
         generation_config={
@@ -82,27 +79,25 @@ def initialize_text_model(user_id, history=None):
             "max_output_tokens": 8192,
         }
     )
-    
     gemini_history = []
     if history:
         for message in history:
-            # Create a more contextual message for the model
             content = message["content"]
-            if "Image Analysis Results:" in content:
-                content = f"Previous context: {content}"
-                
+            # Optionally keep type in context for richer prompting
+            if message.get("type") == "analysis":
+                content = f"[Image Analysis Result]\n{content}"
+            elif message.get("type") == "error":
+                content = f"[Error]\n{content}"
             gemini_history.append({
                 "role": message["role"],
                 "parts": [content]
             })
-    
     chat = model.start_chat(history=gemini_history)
     user_models[user_id] = chat
-    
     return chat
 
 def get_or_create_chat(user_id, history=None):
-    """Get existing chat or create a new one"""
+    """Get existing chat or create a new one with latest persistent history"""
     if user_id in user_models:
         return user_models[user_id]
     else:
@@ -111,25 +106,17 @@ def get_or_create_chat(user_id, history=None):
 def handle_text_message(user_id, user_message, history=None):
     try:
         logger.info("Processing text message from %s: %s", user_id, user_message)
-        
-        # Get or create chat for this user
+        # Always use latest persistent history
         chat = get_or_create_chat(user_id, history)
-        
-        # Generate response
         response = chat.send_message(f"{system_instruction}\n\nHuman: {user_message}")
         return response.text
-
     except Exception as e:
         logger.error("Error processing text message: %s", str(e))
-        
-        # If error occurs, reinitialize the chat
         if user_id in user_models:
             del user_models[user_id]
-            
         return "😔 Sorry, I encountered an error processing your message."
 
 def handle_text_command(command_name, message):
-    """Handle text commands from CMD folder"""
     command_name=command_name.lower()
     try:
         cmd_module = importlib.import_module(f"CMD.{command_name}")
@@ -138,32 +125,25 @@ def handle_text_command(command_name, message):
         logger.warning("Command %s not found.", command_name)
         return "🚫 The Command you are using does not exist, Type /help to view Available Command"
 
-def handle_attachment(user_id, attachment_data, attachment_type="image"):
+def handle_attachment(user_id, attachment_data, attachment_type="image", history=None):
     if attachment_type != "image":
         return "🚫 Unsupported attachment type. Please send an image."
-
     logger.info("Processing image attachment from %s", user_id)
-
     try:
-        # Initialize Gemini for image analysis with same key
         genai.configure(api_key=os.getenv("GEMINI_TEXT_API_KEY"))
         model = genai.GenerativeModel("gemini-1.5-pro")
 
         response = model.generate_content([
             IMAGE_ANALYSIS_PROMPT,
-            {'mime_type': 'image/jpeg', 'data': attachment_data}
+            {'mime_type': 'image/jpeg', 'data': attachment_data.getvalue() if isinstance(attachment_data, BytesIO) else attachment_data}
         ])
+        analysis_result = f"🖼️ Image Analysis:\n{response.text}\n_____\nPowered By Kora AI\n______"
 
-        analysis_result = f"🖼️ Image Analysis:\n{response.text}"
-
-        # Get the chat instance for the user
-        chat = get_or_create_chat(user_id)
-
-        # Add the image analysis result to the chat history
+        # Always use latest persistent history
+        chat = get_or_create_chat(user_id, history=history)
         chat.send_message(analysis_result)
 
         return analysis_result
-
     except Exception as e:
         logger.error(f"Image analysis error: {str(e)}")
         return "🚨 Error analyzing the image. Please try again later."
