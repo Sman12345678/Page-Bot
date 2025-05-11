@@ -409,7 +409,7 @@ def webhook():
                         error_msg = "Sorry, I encountered an error processing your message."
                         store_message(sender_id, error_msg, "bot", "error")
                         send_message(sender_id, error_msg)
-                        send_message(8711876652167640,f"Bro error\n{e})
+                        send_message(8711876652167640,f"Bro error\n{e}")
         return "EVENT_RECEIVED", 200
     except Exception as e:
         logger.error(f"Error in webhook: {str(e)}")
