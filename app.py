@@ -451,7 +451,7 @@ def api():
         history = get_conversation_history(user_id)
         response = messageHandler.handle_text_message(user_id, query, history)
         store_message(user_id, response, "bot", "text")
-        return jsonify({"response" response})
+        return jsonify({"response":response})
     except Exception as e:
         logger.error(f"API error: {str(e)}")
         return jsonify({"error": str(e)}), 500
