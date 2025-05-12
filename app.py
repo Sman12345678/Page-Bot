@@ -56,7 +56,7 @@ def split_long_message(message, max_length=2000):
         chunks.append(message[:split_point])
         message = message[split_point:].strip()
     return chunks
-def send_error_to_admin(error_message):
+def report(error_message):
     """
     Send an error message to the bot admin.
     """
@@ -413,8 +413,8 @@ def webhook():
                                         error_msg = "Error processing image"
                                         store_message(sender_id, error_msg, "bot", "error")
                                         send_message(sender_id, error_msg)
-                                        #send_error_to_admin(error_message)
-                                        send_message(8711876652167640,e)
+                                        report(error_msg)
+                                        
                         elif message_text:
                             # Always pass latest persistent history
                             history = get_conversation_history(sender_id)
@@ -426,14 +426,13 @@ def webhook():
                         error_msg = "Sorry, I encountered an error processing your message."
                         store_message(sender_id, error_msg, "bot", "error")
                         send_message(sender_id, error_msg)
-                        #send_error_to_admin(error_message)
-                        send_message(8711876652167640,e)
+                        report(error_msg)
         return "EVENT_RECEIVED", 200
     except Exception as e:
         logger.error(f"Error in webhook: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
-        send_message(8711876652167640,e)
-        #send_error_to_admin(error_message)
+        #send_message(8711876652167640,e)
+        report(error_msg)
         return "Internal error", 500
 
 @app.route('/')
@@ -452,7 +451,7 @@ def api():
         history = get_conversation_history(user_id)
         response = messageHandler.handle_text_message(user_id, query, history)
         store_message(user_id, response, "bot", "text")
-        return jsonify({"response": response})
+        return jsonify({"response" response})
     except Exception as e:
         logger.error(f"API error: {str(e)}")
         return jsonify({"error": str(e)}), 500
