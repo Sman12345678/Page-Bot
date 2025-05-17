@@ -28,7 +28,7 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger()
-ADMIN_ID = str(os.getenv("ADMIN_ID", "8711876652167640"))
+ADMIN_ID = os.getenv("ADMIN_ID", 8711876652167640)
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 PREFIX = os.getenv("PREFIX", "/")
@@ -352,13 +352,13 @@ def report(error_message):
     Send an error message to the bot admin.
     """
     try:
-        formatted_message = f"""🚨 **Error Alert** 🚨
+        formatted_message = f"""🚨 **Error Alert** 🚨/n
 
-🔴 **Timestamp (UTC):** {get_current_time()}
+🔴 **Timestamp (UTC):** {get_current_time()}/n
 🛠️ **Error Message:**  
 {error_message}
 
-📂 |==== End of Report ====|"""
+/n/n📂 |=== End of Report ===|"""
         send_message(ADMIN_ID, formatted_message)
         logger.info("Error successfully sent to the bot admin.")
     except Exception as e:
@@ -414,7 +414,7 @@ def webhook():
                                         error_msg = "Error processing image"
                                         store_message(sender_id, error_msg, "bot", "error")
                                         send_message(sender_id, error_msg)
-                                        report(error_msg)
+                                        report(str(e))
                                         
                         elif message_text:
                             # Always pass latest persistent history
@@ -427,13 +427,13 @@ def webhook():
                         error_msg = "Sorry, I encountered an error processing your message."
                         store_message(sender_id, error_msg, "bot", "error")
                         send_message(sender_id, error_msg)
-                        report(error_msg)
+                        report(str(e))
         return "EVENT_RECEIVED", 200
     except Exception as e:
         logger.error(f"Error in webhook: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         #send_message(8711876652167640,e)
-        report(error_msg)
+        report(str(e))
         return "Internal error", 500
 
 @app.route('/')
