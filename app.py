@@ -133,9 +133,9 @@ def store_message(user_id, message, sender, message_type="text", metadata=None):
             "content": message,
             "type": message_type
         })
-        # Limit history to last 20 messages
-        if len(history) > 20:
-            history = history[-20:]
+        # Limit history to last 50 messages
+        if len(history) > 50:
+            history = history[-50:]
         c.execute('''INSERT OR REPLACE INTO user_context 
                     (user_id, last_interaction, conversation_history)
                     VALUES (?, ?, ?)''',
