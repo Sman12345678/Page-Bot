@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 Info = {
     "Description":"Get News About English Premier League"
 }
-def execute(message=None):
+def execute(message=None,sender_id=None):
     # Define the URL to scrape for EPL news from Sky Sports
     url = "https://www.skysports.com/premier-league-news"
 
@@ -46,7 +46,7 @@ def execute(message=None):
 
         if live_matches:
             response += "\n\n🔥 **Live Matches** 🔥\n"
-            for match in live_matches[:3]:  # Limit to 3 live matches
+            for match in live_matches[:5]:  # Limit to 3 live matches
                 teams = match.find('span', class_='matches__item-col--team-name').get_text().strip()
                 score = match.find('span', class_='matches__item-col--scores').get_text().strip()
                 response += f"⚡ {teams} - {score}\n"
