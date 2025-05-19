@@ -19,7 +19,7 @@ def format_duration(seconds):
     minutes, seconds = divmod(seconds, 60)
     return f"{int(days)}d {int(hours)}h {int(minutes)}m {int(seconds)}s"
 
-def execute(message=None):
+def execute(message=None, sender_id=None):
     """
     Generate and return the bot's status report.
     """
