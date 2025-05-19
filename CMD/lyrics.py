@@ -14,7 +14,7 @@ def fetch_lyrics(song):
     if not song:
         return {"success": False, "error": "❌ Please provide a song name."}
     
-    url = f"https://kaiz-apis.gleeze.com/api/lyrics?title={song}"
+    url = f"https://kaiz-apis.gleeze.com/api/lyrics?title={song}&apikey=83248daa-8ad2-45d0-93d5-c1c8752b97d3"
     
     try:
         response = requests.get(url)
@@ -39,14 +39,14 @@ def display_song(data):
     song_details = (
         f"\n{'_' * 5}\n"
         f"🎵 Title: {data['title']}\n"
-        f"🎤 Artist: KORA AI\n"
-        f"{'➖' * 5}\n\n"
+        f"✍️ Author: KORA AI\n"
+        f"{'_' * 5}\n\n"
         f"📋 Lyrics:\n\n{data['lyrics']}\n"
         f"{'_' * 5}"
     )
     return song_details
 
-def execute(song_name):
+def execute(song_name,sender_id=None):
     """
     Main function to fetch and display song details.
     
