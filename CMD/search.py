@@ -5,7 +5,7 @@ Info = {
     "Description": "Perform Google Search"
 }
 
-def execute(message):
+def execute(message, sender_id=None):
     """
     Perform a Google search using the provided message text 
     and return the top results using Google Custom Search API.
