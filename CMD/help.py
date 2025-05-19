@@ -5,7 +5,7 @@ import logging
 # Configure logging
 logger = logging.getLogger()
 
-def execute(message=None):
+def execute(message=None,sender_id=None):
     # Start the response with a header and an updated diagram
     response = (
         "📜 **KORA AI Command List** 📜\n\n"
@@ -19,6 +19,7 @@ def execute(message=None):
     for filename in os.listdir("CMD"):
         if filename.endswith(".py") and filename != "__init__.py":
             command_name = filename[:-3]  # Remove .py extension
+            
 
             # Dynamically load each command module
             try:
@@ -30,7 +31,7 @@ def execute(message=None):
                 response += (
                     f"📌 **/{command_name}**\n"
                     f"   📖 *Description*: {description}\n"
-                    f"   ~~~~~~~~~~~~~~~~~~~~~\n"
+                    f"   ~~~~~~~~~~~~~~~~~~~\n"
                 )
 
             except Exception as e:
@@ -38,7 +39,7 @@ def execute(message=None):
                 response += (
                     f"📌 **/{command_name}**\n"
                     f"   ⚠️ *Description*: Unable to load description.\n"
-                    f"   ~~~~~~~~~~~~~~~~~~~~~\n"
+                    f"   ~~~~~~~~~~~~~~~~~~~\n"
                 )
 
     # Footer with some extra info or design
