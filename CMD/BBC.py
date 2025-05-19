@@ -1,6 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
-from app import sender_id  # Reuse sender_id from app.py
+ # Reuse sender_id from app.py
 
 Info={
 "Description":"Top 10 headlines from BBC"
@@ -26,7 +26,7 @@ def scrape_news():
 
     return articles
 
-def execute(message=None):
+def execute(message=None,sender_id):
     news_items = scrape_news()
 
     elements = []
