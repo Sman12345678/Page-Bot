@@ -19,7 +19,7 @@ def is_valid_email(email):
     regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
     return re.match(regex, email)
 
-def execute(message):
+def execute(message,sender_id=None):
     """
     Send an email using SMTP based on the provided message.
 
