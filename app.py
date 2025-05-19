@@ -11,6 +11,7 @@ from io import BytesIO
 import json
 import traceback
 from datetime import datetime, timezone
+from listcmd import register_commands
 
 # Load environment variables
 load_dotenv()
@@ -483,3 +484,4 @@ except Exception as e:
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0',port=3000)
+    register_commands()
