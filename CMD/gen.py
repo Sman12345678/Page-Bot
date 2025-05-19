@@ -13,7 +13,7 @@ Info = {
     "Description": "Generate an image based on the given prompt using the custom API."
 }
 
-def execute(message):
+def execute(message,sender_id):
     """
     Generate an image based on the given prompt using the custom API.
 
