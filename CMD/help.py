@@ -5,8 +5,10 @@ import logging
 # Configure logging
 logger = logging.getLogger()
 
-def execute(message=None,sender_id=None):
-    # Start the response with a header and an updated diagram
+def execute(message=None, sender_id=None):
+    # List of files to exclude from the command list
+    EXCLUDED_COMMANDS = {"__init__.py", "help.py", "file.py", "install.py"}
+
     response = (
         "📜 **KORA AI Command List** 📜\n\n"
         "Here are the available commands:\n\n"
@@ -17,23 +19,16 @@ def execute(message=None,sender_id=None):
 
     # Iterate over each file in the CMD folder
     for filename in os.listdir("CMD"):
-        if filename.endswith(".py") and filename != "__init__.py":
+        if filename.endswith(".py") and filename not in EXCLUDED_COMMANDS:
             command_name = filename[:-3]  # Remove .py extension
-            
-
-            # Dynamically load each command module
             try:
                 cmd_module = importlib.import_module(f"CMD.{command_name}")
-                # Try to get the Info dictionary for each command
                 description = getattr(cmd_module, "Info", {}).get("Description", "No description available.")
-                
-                # Append each command in a structured format with emojis
                 response += (
                     f"📌 **/{command_name}**\n"
                     f"   📖 *Description*: {description}\n"
                     f"   ~~~~~~~~~~~~~~~~~~~\n"
                 )
-
             except Exception as e:
                 logger.warning(f"Failed to load command {command_name}: {e}")
                 response += (
@@ -42,7 +37,6 @@ def execute(message=None,sender_id=None):
                     f"   ~~~~~~~~~~~~~~~~~~~\n"
                 )
 
-    # Footer with some extra info or design
     response += (
         "\n💡 **How to Use Commands:**\n"
         "   - Type `/command_name` to use a command.\n"
