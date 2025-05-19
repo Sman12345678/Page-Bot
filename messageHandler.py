@@ -113,9 +113,11 @@ def handle_text_message(user_id, user_message, history=None):
         return response.text
     except Exception as e:
         logger.error("Error processing text message: %s", str(e))
+        app.report(str(e))
         if user_id in user_models:
             del user_models[user_id]
         return "😔 Sorry, I encountered an error processing your message."
+     
 
 def handle_text_command(command_name, message):
     command_name=command_name.lower()
@@ -148,4 +150,4 @@ def handle_attachment(user_id, attachment_data, attachment_type="image", history
     except Exception as e:
         logger.error(f"Image analysis error: {str(e)}")
         return "🚨 Error analyzing the image. Please try again later."
-        app.report(e)
+        app.report(str(e))
