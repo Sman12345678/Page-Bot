@@ -2,7 +2,7 @@ import app as Suleiman
 
 user_id = 8711876652167640
 
-def execute(message):
+def execute(message,sender_id):
     if not message:
         return "🧘 Please provide a message to be sent to Admin"
     
@@ -11,12 +11,12 @@ def execute(message):
         user_id,
         f"""📩 |== Quick Message ==|
 
-👨‍💻 **Message From**: Bot User  
+👨‍💻 Message From:{sender_id}
 
-📝 |=== Body ===|  
+📝 |== Body ==|  
 {message}  
 
-📬 |=============|"""
+📬 |==========|"""
     )
     if success:
         return "✅ Your message has been sent to the admin successfully!"
