@@ -336,7 +336,7 @@ def handle_command_message(sender_id, message_text):
     command_args = command_parts[1] if len(command_parts) > 1 else ""
     logger.debug(f"Processing command: {command_name} with args: {command_args}")
     try:
-        response = messageHandler.handle_text_command(command_name, command_args)
+        response = messageHandler.handle_text_command(command_name, command_args,sender_id)
         if isinstance(response, list):
             for item in response:
                 process_command_response(sender_id, item)
@@ -353,13 +353,14 @@ def report(error_message):
     Send an error message to the bot admin.
     """
     try:
-        formatted_message = f"""🚨 **Error Alert** 🚨/n
+        formatted_message = f"""🚨Error Alert🚨
 
-🔴 **Timestamp (UTC):** {get_current_time()}/n
+🔴 **Timestamp (UTC):** {get_current_time()}
+
 🛠️ **Error Message:**  
 {error_message}
 
-/n/n📂 |=== End of Report ===|"""
+📂 |= End of Report =|"""
         send_message(ADMIN_ID, formatted_message)
         logger.info("Error successfully sent to the bot admin.")
     except Exception as e:
