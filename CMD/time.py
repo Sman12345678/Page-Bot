@@ -1,10 +1,10 @@
 import time
 import calendar
 Info = {
-    "Description":"Time and Date. Depending on your time Zone"
+    "Description":"Time and Date. "
 }
 
-def execute(message=None):
+def execute(message=None,sender_id=None):
     # Get the current time and date information
     localtime = time.localtime(time.time())
     period = time.asctime(localtime)
