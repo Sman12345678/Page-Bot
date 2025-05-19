@@ -14,7 +14,7 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-def execute(message):
+def execute(message,sender_id=None):
     """
     Scrapes images from Bing based on the search term and returns images with proper structure.
     
