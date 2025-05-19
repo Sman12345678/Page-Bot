@@ -29,7 +29,7 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger()
-ADMIN_ID = os.getenv("ADMIN_ID", 8711876652167640)
+ADMIN_ID = os.getenv("ADMIN_ID")
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 PREFIX = os.getenv("PREFIX", "/")
