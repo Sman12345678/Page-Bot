@@ -7,7 +7,7 @@ Info = {
 SMAN_API_KEY = '2700cb22fb254ad9b409ff1ff6bc9278'
 SMAN_NEWS_URL = 'https://newsapi.org/v2/top-headlines'
 
-def execute(message=None):
+def execute(message=None,sender_id=None):
     """
     Fetch and return the top 5 news headlines from the specified country.
     """
@@ -28,11 +28,11 @@ def execute(message=None):
         
         # Format the top 5 headlines
         output = []
-        output.append("✨ Top 5 Headlines ✨")
-        output.append("╭───────────────────────────────╮")
+        output.append("✨ Top 10 Headlines ✨")
+        output.append("╭────────────────────────────╮")
         for i, article in enumerate(articles[:5], start=1):
             output.append(f"│ {i}. {article['title']}")
-        output.append("╰───────────────────────────────╯")
+        output.append("╰────────────────────────────╯")
         
         return "\n".join(output)
     except Exception as e:
