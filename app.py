@@ -12,6 +12,8 @@ import json
 import traceback
 from datetime import datetime, timezone
 from listcmd import register_commands
+from intent import classifier 
+from CMD import imagine
 
 # Load environment variables
 load_dotenv()
@@ -355,7 +357,7 @@ def report(error_message):
     try:
         formatted_message = f"""🚨Error Alert🚨
 
-🔴 **Timestamp (UTC):** {get_current_time()}
+🔴 Timestamp (UTC): {get_current_time()}
 
 🛠️ **Error Message:**  
 {error_message}
@@ -393,8 +395,10 @@ def webhook():
                         # Always store user messages
                         if message_text:
                             store_message(sender_id, message_text, "user", "text")
+                        # Handle commands (e.g., /imagine ...)
                         if message_text.startswith(PREFIX):
                             handle_command_message(sender_id, message_text)
+                        # Handle image attachments from user
                         elif attachments:
                             for attachment in attachments:
                                 if attachment["type"] == "image":
@@ -417,13 +421,22 @@ def webhook():
                                         store_message(sender_id, error_msg, "bot", "error")
                                         send_message(sender_id, error_msg)
                                         report(str(e))
-                                        
+                        # Handle plain text messages
                         elif message_text:
-                            # Always pass latest persistent history
                             history = get_conversation_history(sender_id)
-                            response = messageHandler.handle_text_message(sender_id, message_text, history)
-                            store_message(sender_id, response, "bot", "text")
-                            send_message(sender_id, response)
+                            intent = classifier.predict_intent(message_text)
+                            if intent == "generate_image":
+                                response = imagine.execute(message_text, sender_id)
+                                if isinstance(response, list):
+                                    for item in response:
+                                        process_command_response(sender_id, item)
+                                else:
+                                    process_command_response(sender_id, response)
+                                store_message(sender_id, f"[Image generated: {message_text}]", "bot", "image")
+                            else:
+                                response = messageHandler.handle_text_message(sender_id, message_text, history)
+                                store_message(sender_id, response, "bot", "text")
+                                send_message(sender_id, response)
                     except Exception as e:
                         logger.error(f"Error processing message: {str(e)}")
                         error_msg = "Sorry, I encountered an error processing your message."
