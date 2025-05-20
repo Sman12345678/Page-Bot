@@ -149,5 +149,6 @@ def handle_attachment(user_id, attachment_data, attachment_type="image", history
         return analysis_result
     except Exception as e:
         logger.error(f"Image analysis error: {str(e)}")
-        return "🚨 Error analyzing the image. Please try again later."
         app.report(str(e))
+        return "🚨 Error analyzing the image. Please try again later."
+        
