@@ -3,6 +3,7 @@ from sklearn.linear_model import LogisticRegression
 train_data = [
     # generate_image intent
     ("generate image of a cat", "generate_image"),
+    ("create an image of hyper realistic dog", "generate_image"),
     ("show me a picture of a mountain", "generate_image"),
     ("make a photo of a robot", "generate_image"),
     ("draw a dragon", "generate_image"),
@@ -17,6 +18,7 @@ train_data = [
     ("paint a fantasy landscape", "generate_image"),
     ("generate a drawing of a family at the beach", "generate_image"),
     ("draw a superhero", "generate_image"),
+    ("generate an image of futuristic city", "generate_image"),
     ("show me a painting of New York City", "generate_image"),
 
     # general_chat intent
