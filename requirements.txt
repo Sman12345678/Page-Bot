@@ -4,6 +4,6 @@ python-dotenv
 flask-cors
 google-generativeai
 beautifulsoup4
-
+scikit-learn
 
 
