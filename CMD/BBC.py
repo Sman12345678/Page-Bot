@@ -26,7 +26,7 @@ def scrape_news():
 
     return articles
 
-def execute(message=None,sender_id):
+def execute(message=None,sender_id=None):
     news_items = scrape_news()
 
     elements = []
