@@ -4,7 +4,7 @@ Info = {
     "Description": "Admin-only: The command is restricted to admin usage"
 }
 
-def execute(message=None, sender_id=None):
+def execute(message, sender_id):
     ADMIN_ID = os.getenv("ADMIN_ID")
     if str(sender_id) != str(ADMIN_ID):
         return {
@@ -13,6 +13,7 @@ def execute(message=None, sender_id=None):
             "data": "🚫 This room is for the Bot owner only."
         }
     # List of admin-only commands
+    
     admin_cmds = [
         "/admin   - Show this admin panel",
         "/install - Install a CMD file from code",
