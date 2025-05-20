@@ -29,12 +29,10 @@ def execute(message, sender_id=None):
 
     try:
         logging.info(f"Fetching lyrics for: {message}")
-        api_key = "83248daa-8ad2-45d0-93d5-c1c8752b97d3"  # Make sure your key is set in your .env
-        api_url = f"https://kaiz-apis.gleeze.com/api/lyrics?query={message}"
-        headers = {}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-        response = requests.get(api_url, headers=headers)
+        
+        api_url = f"https://kaiz-apis.gleeze.com/api/lyrics?query={message}&apikey=83248daa-8ad2-45d0-93d5-c1c8752b97d3"
+        
+        response = requests.get(api_url)
         if response.status_code == 200:
             data = response.json()
             # Download the thumbnail image
