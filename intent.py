@@ -21,10 +21,10 @@ train_data = [
 
     # general_chat intent
     ("how are you?", "general_chat"),
-    ("Teach me how to code","general_chat")
-    ("Teach me how to draw","general_chat")
-    ("i want to know art and illustration ","general_chat")
-    ("Teach me painting, pictures ","general_chat")
+    ("Teach me how to code","general_chat"),
+    ("Teach me how to draw","general_chat"),
+    ("i want to know art and illustration ","general_chat"),
+    ("Teach me painting, pictures ","general_chat"),
     ("what's the weather?", "general_chat"),
     ("tell me a joke", "general_chat"),
     ("who is the president?", "general_chat"),
