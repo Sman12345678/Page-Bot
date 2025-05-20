@@ -1,6 +1,6 @@
 import app as Suleiman
-
-user_id = 8711876652167640
+import os
+user_id = os.getenv("ADMIN_ID")
 
 def execute(message,sender_id):
     if not message:
