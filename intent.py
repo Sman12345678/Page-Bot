@@ -20,6 +20,10 @@ train_data = [
     ("draw a superhero", "generate_image"),
     ("generate an image of futuristic city", "generate_image"),
     ("show me a painting of New York City", "generate_image"),
+    ("generate image of a cat", "generate_image"),
+    ("imagine a cute dog", "generate_image"),
+    ("imagine the picture of a young girl", "generate_image"),
+
 
     # general_chat intent
     ("how are you?", "general_chat"),
