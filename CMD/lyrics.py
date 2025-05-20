@@ -29,7 +29,7 @@ def execute(message, sender_id=None):
 
     try:
         logging.info(f"Fetching lyrics for: {message}")
-        api_key = 83248daa-8ad2-45d0-93d5-c1c8752b97d3  # Make sure your key is set in your .env
+        api_key = "83248daa-8ad2-45d0-93d5-c1c8752b97d3"  # Make sure your key is set in your .env
         api_url = f"https://kaiz-apis.gleeze.com/api/lyrics?query={message}"
         headers = {}
         if api_key:
