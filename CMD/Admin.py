@@ -4,7 +4,7 @@ Info = {
     "Description": "Admin-only: The command is restricted to admin usage"
 }
 
-def execute(message=None, sender_id):
+def execute(message=message, sender_id=sender_id):
     ADMIN_ID = os.getenv("ADMIN_ID")
     if str(sender_id) != str(ADMIN_ID):
         return {
