@@ -19,8 +19,7 @@ def execute(message, sender_id):
             return {"success": False, "type": "text", "data": f"❌ File {filename} does not exist."}
         with open(file_path, "r", encoding="utf-8") as f:
             code = f.read()
-        if len(code) > 1800:
-            code = code[:1800] + "\n... (truncated)"
+        # No truncation, send the entire file content
         return {"success": True, "type": "text", "data": f"📄 {filename} code:\n\n{code}"}
     except Exception as e:
         logging.error(f"File command error: {e}")
