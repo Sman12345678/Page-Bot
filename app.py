@@ -298,40 +298,31 @@ def process_command_response(sender_id, response):
                             "type": "image",
                             "content": upload_response["attachment_id"]
                         }
-                        # Store generated image message
-                        store_message(sender_id, f"[Generated image: {upload_response['attachment_id']}]", "bot", "image")
+                        # DO NOT store generated image message for commands
                         logger.debug(f"Sending image message with data: {message_data}")
-                        if send_message(sender_id, message_data):
-                            logger.info(f"Successfully sent image message to {sender_id}")
-                        else:
-                            logger.error(f"Failed to send image message to {sender_id}")
-                            error_msg = "Failed to send image"
-                            store_message(sender_id, error_msg, "bot", "error")
-                            send_message(sender_id, error_msg)
+                        send_message(sender_id, message_data)
                     else:
                         error_msg = f"Failed to upload image: {upload_response.get('error')}"
                         logger.error(error_msg)
-                        store_message(sender_id, error_msg, "bot", "error")
                         send_message(sender_id, error_msg)
                 else:
-                    store_message(sender_id, response.get("data", "No data provided"), "bot", response.get("type", "text"))
+                    # DO NOT store message
                     send_message(sender_id, response.get("data", "No data provided"))
             else:
                 error_msg = response.get("data", "Command failed")
-                store_message(sender_id, error_msg, "bot", "error")
+                # DO NOT store message
                 send_message(sender_id, error_msg)
         else:
-            store_message(sender_id, str(response), "bot", "text")
+            # DO NOT store message
             send_message(sender_id, str(response))
     except Exception as e:
         logger.error(f"Error processing command response: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         error_msg = "Error processing command response"
-        store_message(sender_id, error_msg, "bot", "error")
+        # DO NOT store message
         send_message(sender_id, error_msg)
     finally:
         logger.debug("=== END PROCESS COMMAND RESPONSE ===")
-
 def handle_command_message(sender_id, message_text):
     command_parts = message_text[len(PREFIX):].split(maxsplit=1)
     command_name = command_parts[0]
@@ -347,7 +338,7 @@ def handle_command_message(sender_id, message_text):
     except Exception as e:
         logger.error(f"Error handling command: {str(e)}")
         error_msg = f"Error processing command: {str(e)}"
-        store_message(sender_id, error_msg, "bot", "error")
+        
         send_message(sender_id, error_msg)
 
 def report(error_message):
