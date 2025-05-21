@@ -24,7 +24,7 @@ def execute(message, sender_id):
                 }
             ]
         data = response.json()
-        image_url = data.get("images")
+        image_url = data.get("image")
         text_response = data.get("response", "")
 
         messages = []
