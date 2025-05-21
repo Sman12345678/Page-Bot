@@ -133,7 +133,7 @@ def handle_attachment(user_id, attachment_data, attachment_type="image", history
         return "🚫 Unsupported attachment type. Please send an image."
     logger.info("Processing image attachment from %s", user_id)
     try:
-        genai.configure(api_key=os.getenv("GEMINI_TEXT_API_KEY"))
+        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
         model = genai.GenerativeModel("gemini-1.5-pro")
 
         response = model.generate_content([
