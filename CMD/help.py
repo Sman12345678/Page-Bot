@@ -7,7 +7,7 @@ logger = logging.getLogger()
 
 def execute(message=None, sender_id=None):
     # List of files to exclude from the command list
-    EXCLUDED_COMMANDS = {"__init__.py", "help.py", "imagine.py" "file.py", "install.py"}
+    EXCLUDED_COMMANDS = {"__init__.py", "help.py", "imagine.py", "file.py", "install.py"}
 
     response = (
         "📜KORA AI Command List📜\n\n"
