@@ -1,33 +1,69 @@
 import requests
 from bs4 import BeautifulSoup
- # Reuse sender_id from app.py
+import logging
 
-Info={
-"Description":"Top 10 headlines from BBC"
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,  # Change to DEBUG for more verbose output
+    format='%(asctime)s [%(levelname)s] %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+Info = {
+    "Description": "Top 10 headlines from BBC"
 }
 
 def scrape_news():
     url = "https://www.bbc.com/news"
-    response = requests.get(url)
+    try:
+        logger.info(f"Requesting BBC News page: {url}")
+        response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
+        response.raise_for_status()
+    except Exception as e:
+        logger.error(f"Failed to fetch BBC News: {e}")
+        return []
+
     soup = BeautifulSoup(response.text, 'html.parser')
 
     articles = []
-    for item in soup.select('.gs-c-promo', limit=10):  # Get top 5 stories
+    items = soup.select('.gs-c-promo')
+    logger.info(f"Found {len(items)} news items on the page.")
+    for item in items[:10]:  # Get top 10 stories
         title = item.select_one('.gs-c-promo-heading__title')
         link = item.select_one('a')
         image = item.select_one('img')
 
         if title and link:
-            articles.append({
+            article = {
                 'title': title.text.strip(),
                 'link': f"https://www.bbc.com{link['href']}" if link['href'].startswith('/') else link['href'],
                 'image': image['src'] if image and 'src' in image.attrs else None
-            })
+            }
+            logger.debug(f"Article parsed: {article}")
+            articles.append(article)
+        else:
+            logger.debug("Skipped an item due to missing title or link.")
 
+    logger.info(f"Returning {len(articles)} articles.")
     return articles
 
-def execute(message=None,sender_id=None):
-    news_items = scrape_news()
+def execute(message=None, sender_id=None):
+    logger.info("Executing BBC command.")
+    try:
+        news_items = scrape_news()
+    except Exception as e:
+        logger.error(f"Error in scrape_news: {e}")
+        return {
+            "recipient": {"id": sender_id},
+            "message": {"text": f"❌ Could not fetch BBC news: {e}"}
+        }
+
+    if not news_items:
+        logger.warning("No news items were returned.")
+        return {
+            "recipient": {"id": sender_id},
+            "message": {"text": "❌ No news could be fetched from BBC at this time."}
+        }
 
     elements = []
     for item in news_items:
@@ -49,6 +85,7 @@ def execute(message=None,sender_id=None):
             ]
         })
 
+    logger.info("Returning news carousel to user.")
     return {
         "recipient": {"id": sender_id},
         "message": {
