@@ -10,7 +10,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 Info = {
-    "Description": "Top 10 headlines from BBC"
+    "Description": "Top BBC News headlines from bbc.com/news with images, links, and descriptions"
 }
 
 def scrape_news():
@@ -26,18 +26,39 @@ def scrape_news():
     soup = BeautifulSoup(response.text, 'html.parser')
 
     articles = []
-    items = soup.select('.gs-c-promo')
-    logger.info(f"Found {len(items)} news items on the page.")
-    for item in items[:10]:  # Get top 10 stories
-        title = item.select_one('.gs-c-promo-heading__title')
-        link = item.select_one('a')
-        image = item.select_one('img')
+    # Main news container
+    main_container = soup.find(class_="sc-464f550b-2 iEUdAz")
+    if not main_container:
+        logger.warning("Main BBC news container not found.")
+        return []
+
+    news_items = main_container.find_all(class_="sc-225578b-0 btdqbl")
+    logger.info(f"Found {len(news_items)} news items in the main container.")
+
+    for item in news_items[:10]:  # Limit to top 10
+        # Link
+        a_tag = item.find("a", class_="sc-8a623a54-0 hMvGwj")
+        link = a_tag["href"] if a_tag and a_tag.has_attr("href") else None
+        if link and link.startswith("/"):
+            link = "https://www.bbc.com" + link
+
+        # Title (also inside <a>)
+        title = a_tag.get_text(strip=True) if a_tag else None
+
+        # Image
+        img_tag = item.find("img", class_="sc-4abb68ca-0 ldLcJe")
+        image_url = img_tag["src"] if img_tag and img_tag.has_attr("src") else None
+
+        # Description
+        desc_tag = item.find("p", class_="sc-cb78bbba-0 klCBmG", attrs={"data-testid": "card-description"})
+        description = desc_tag.get_text(strip=True) if desc_tag else None
 
         if title and link:
             article = {
-                'title': title.text.strip(),
-                'link': f"https://www.bbc.com{link['href']}" if link['href'].startswith('/') else link['href'],
-                'image': image['src'] if image and 'src' in image.attrs else None
+                'title': title,
+                'link': link,
+                'image': image_url or "https://via.placeholder.com/300x200?text=No+Image",
+                'description': description or ""
             }
             logger.debug(f"Article parsed: {article}")
             articles.append(article)
@@ -69,8 +90,8 @@ def execute(message=None, sender_id=None):
     for item in news_items:
         elements.append({
             "title": item['title'],
-            "image_url": item['image'] or "https://via.placeholder.com/300x200?text=No+Image",
-            "subtitle": "Tap to read full article.",
+            "image_url": item['image'],
+            "subtitle": item['description'] or "Tap to read full article.",
             "default_action": {
                 "type": "web_url",
                 "url": item['link'],
