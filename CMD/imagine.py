@@ -28,7 +28,31 @@ def execute(message, sender_id):
         text_response = data.get("response", "")
 
         messages = []
-        # Always include the text response first
+        # If image exists, add it first
+        if image_url:
+            try:
+                img_response = requests.get(image_url, stream=True, timeout=30)
+                if img_response.status_code == 200:
+                    image_bytes = BytesIO(img_response.content)
+                    messages.append({
+                        "success": True,
+                        "type": "image",
+                        "data": image_bytes
+                    })
+                else:
+                    messages.append({
+                        "success": False,
+                        "type": "text",
+                        "data": "❌ Failed to fetch the generated image."
+                    })
+            except Exception as e:
+                messages.append({
+                    "success": False,
+                    "type": "text",
+                    "data": f"🚨 Error fetching image: {str(e)}"
+                })
+
+        # Always include the text response (after the image, if any)
         if text_response:
             messages.append({
                 "success": True,
@@ -36,29 +60,6 @@ def execute(message, sender_id):
                 "data": text_response
             })
 
-        # Only include the image if it exists
-        if image_url:
-            try:
-                img_response = requests.get(image_url, stream=True, timeout=30)
-                if img_response.status_code == 200:
-                    image_bytes = BytesIO(img_response.content)
-                    messages.insert(0, {  # Insert image before text (optional, or after if you want text first)
-                        "success": True,
-                        "type": "image",
-                        "data": image_bytes
-                    })
-                else:
-                    messages.insert(0, {
-                        "success": False,
-                        "type": "text",
-                        "data": "❌ Failed to fetch the generated image."
-                    })
-            except Exception as e:
-                messages.insert(0, {
-                    "success": False,
-                    "type": "text",
-                    "data": f"🚨 Error fetching image: {str(e)}"
-                })
         return messages
     except Exception as e:
         return [
