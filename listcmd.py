@@ -3,7 +3,7 @@ import os
 
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 
-def register_command():
+def register_commands():
     menu_data = {
         "persistent_menu": [
             {
