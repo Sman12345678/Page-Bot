@@ -25,7 +25,6 @@ logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
     handlers=[
-        logging.FileHandler('app_debug.log'),
         logging.StreamHandler()
     ]
 )
