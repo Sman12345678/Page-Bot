@@ -134,7 +134,7 @@ def handle_attachment(user_id, attachment_data, attachment_type="image", history
     logger.info("Processing image attachment from %s", user_id)
     try:
         genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-        model = genai.GenerativeModel("gemini-1.5-pro")
+        model = genai.GenerativeModel("gemini-1.5-flash")
 
         response = model.generate_content([
             IMAGE_ANALYSIS_PROMPT,
