@@ -12,7 +12,7 @@ import json
 import traceback
 from datetime import datetime, timezone
 from intent import classifier 
-from CMD import imagine
+from CMD import image,pic
 
 # Load environment variables
 load_dotenv()
@@ -416,13 +416,15 @@ def webhook():
                             history = get_conversation_history(sender_id)
                             intent = classifier.predict_intent(message_text)
                             if intent == "generate_image":
-                                response = imagine.execute(message_text, sender_id)
+                                response = pic.execute(message_text, sender_id)
+                            elif intent == "image_search":
+                                response = image.execute(message_text,sender_id)
                                 if isinstance(response, list):
                                     for item in response:
                                         process_command_response(sender_id, item)
                                 else:
                                     process_command_response(sender_id, response)
-                                store_message(sender_id, f"[Image generated: {message_text}]", "bot", "image")
+                                store_message(sender_id, f"[Image generated/Searched for the prompt: {message_text}]", "bot", "image")
                             else:
                                 response = messageHandler.handle_text_message(sender_id, message_text, history)
                                 store_message(sender_id, response, "bot", "text")
