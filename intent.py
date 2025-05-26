@@ -81,6 +81,8 @@ train_data = [
     ("find pictures of colorful butterflies", "image_search"),
     ("show me a picture of the sunset", "image_search"),
     ("show me a picture from the internet", "image_search"),
+    ("show me an image of a young girl", "image_search"),
+    ("show me a image from the internet", "image_search"),
     # general_chat intent (including some image-related distractors)
     ("how are you?", "general_chat"),
     ("what's the weather?", "general_chat"),
