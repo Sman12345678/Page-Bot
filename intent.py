@@ -24,7 +24,26 @@ train_data = [
     ("imagine a cute dog", "generate_image"),
     ("imagine the picture of a young girl", "generate_image"),
 
-
+    ("find me images of cats", "image_search"),
+    ("search for pictures of mountains", "image_search"),
+    ("look up photos of the Eiffel Tower", "image_search"),
+    ("show me pictures of vintage cars", "image_search"),
+    ("find photos of cute puppies", "image_search"),
+    ("search for images of space exploration", "image_search"),
+    ("look for pictures of autumn forests", "image_search"),
+    ("find images of famous landmarks", "image_search"),
+    ("search for pictures of tropical beaches", "image_search"),
+    ("show photos of historical buildings", "image_search"),
+    ("find me artwork of futuristic cities", "image_search"),
+    ("look up pictures of rare birds", "image_search"),
+    ("search images of beautiful sunsets", "image_search"),
+    ("show photos of ancient ruins", "image_search"),
+    ("find pictures of colorful butterflies", "image_search"),
+    ("show me a picture of the sunset", "image_search"),
+    ("show me a picture from the internet", "image_search"),
+    ("show me an image of a young girl", "image_search"),
+    ("show me a image from the internet", "image_search"),
+    
     # general_chat intent
     ("how are you?", "general_chat"),
     ("Teach me how to code","general_chat"),
