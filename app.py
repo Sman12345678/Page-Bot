@@ -431,7 +431,7 @@ def webhook():
                                         process_command_response(sender_id, item)
                                 else:
                                     process_command_response(sender_id, response)
-                                store_message(sender_id, f"[Image successfuly provided for the prompt: {message_text}]", "bot", "text")
+                                
                             else:
                                 response = messageHandler.handle_text_message(sender_id, message_text, history)
                                 store_message(sender_id, response, "bot", "text")
