@@ -1,23 +1,31 @@
+# autopost.py
+
 import os
 import time
 import random
 import requests
 from datetime import datetime
-import app
+from app import report  # your error-reporting function
 
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
-PAGE_ID = os.getenv("PAGE_ID")
 
 def post_text_to_page(message):
-    url = f"https://graph.facebook.com/{PAGE_ID}/feed"
+    """
+    Posts text to the Facebook Page tied to PAGE_ACCESS_TOKEN
+    via the /me/feed endpoint (Graph API v22.0).
+    """
+    url = "https://graph.facebook.com/v22.0/me/feed"
     payload = {
         "message": message,
         "access_token": PAGE_ACCESS_TOKEN
     }
-    response = requests.post(url, data=payload)
-    return response.json()
+    return requests.post(url, data=payload).json()
 
 def get_content_pool():
+    """
+    Returns a large pool of motivational quotes, tech tips,
+    AI facts, DIY hacks, and general life advice.
+    """
     return [
         # Motivation & Quotes
         "🌟 Believe in yourself. You're stronger than you think.",
@@ -89,14 +97,26 @@ def get_content_pool():
     ]
 
 def post():
+    """
+    Runs forever, posting one random message every 24 hours.
+    Logs and reports OAuth errors (code 100) which arise
+    if a Page ID scope issue occurs. Uses /me/feed to avoid:
+    (#100) The global id … is not allowed for this call 0
+    """
     while True:
+        message = random.choice(get_content_pool())
         try:
-            message = random.choice(get_content_pool())
             result = post_text_to_page(message)
+
+            # Handle specific OAuthException code 100
+            if result.get("error", {}).get("code") == 100:
+                report(f"Autopost OAuthException, need app-scoped ID: {result['error']['message']}")
+
             print(f"[{datetime.now()}] ✅ Auto-posted: {message}")
             print(f"📡 Facebook Response: {result}")
+
         except Exception as e:
             print(f"[{datetime.now()}] ❌ Auto-post failed: {e}")
-            app.report(f"Autopost error:{e}")
+            report(f"Autopost error: {e}")
 
-        time.sleep(86400)  # sleep 24 hours
+        time.sleep(86400)  # wait 24 hours
