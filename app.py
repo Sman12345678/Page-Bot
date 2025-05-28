@@ -13,7 +13,8 @@ import traceback
 from datetime import datetime, timezone
 from intent import classifier 
 from CMD import imagine
-
+from autopost import post
+import threading 
 # Load environment variables
 load_dotenv()
 
@@ -525,6 +526,7 @@ if __name__ == '__main__':
     ===================
     CREATED BY SULEIMAN
     ===================""")
+    threading.Thread(target=post, daemon=True).start()
 
     app.run(debug=True, host='0.0.0.0',port=3000)
     
