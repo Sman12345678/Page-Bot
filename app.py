@@ -11,9 +11,9 @@ from io import BytesIO
 import json
 import traceback
 from datetime import datetime, timezone
+from listcmd import register_commands
 from intent import classifier 
-from CMD import image
-import sys
+from CMD import imagine
 
 # Load environment variables
 load_dotenv()
@@ -24,16 +24,13 @@ CORS(app)
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(funcName)s - %(message)s',
+    format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
     handlers=[
-        logging.StreamHandler(sys.stdout)  # Logs to stdout for Render
+        logging.FileHandler('app_debug.log'),
+        logging.StreamHandler()
     ]
 )
-
 logger = logging.getLogger()
-logger.info("Logger initialized. Logging to console only.")
-
-
 ADMIN_ID = os.getenv("ADMIN_ID")
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
@@ -49,7 +46,6 @@ def get_current_time():
     return datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
 
 def split_long_message(message, max_length=2000):
-    logger.debug("Splitting message if needed. Length: %d", len(message))
     if len(message) <= max_length:
         return [message]
     chunks = []
@@ -63,28 +59,22 @@ def split_long_message(message, max_length=2000):
         chunks.append(message[:split_point])
         message = message[split_point:].strip()
     return chunks
-
 def validate_environment():
-    logger.info("Validating environment variables and Facebook API token")
     if not PAGE_ACCESS_TOKEN:
-        logger.critical("PAGE_ACCESS_TOKEN is not set!")
         raise ValueError("PAGE_ACCESS_TOKEN must be set")
     if not VERIFY_TOKEN:
-        logger.critical("VERIFY_TOKEN is not set!")
         raise ValueError("VERIFY_TOKEN must be set")
     try:
         verify_url = f"https://graph.facebook.com/{API_VERSION}/me"
         response = requests.get(verify_url, params={"access_token": PAGE_ACCESS_TOKEN})
         if response.status_code != 200:
-            logger.critical(f"Invalid PAGE_ACCESS_TOKEN: {response.text}")
             raise FacebookAPIError(f"Invalid PAGE_ACCESS_TOKEN: {response.text}")
         logger.info("Facebook API token validated successfully")
     except Exception as e:
-        logger.error(f"Failed to validate Facebook API token: {str(e)}\n{traceback.format_exc()}")
+        logger.error(f"Failed to validate Facebook API token: {str(e)}")
         raise
 
 def init_db():
-    logger.info("Initializing database connection and tables")
     try:
         conn = sqlite3.connect('bot_memory.db', check_same_thread=False)
         c = conn.cursor()
@@ -117,11 +107,14 @@ def init_db():
         logger.info("Database initialized successfully")
         return conn
     except Exception as e:
-        logger.error(f"Database initialization failed: {str(e)}\n{traceback.format_exc()}")
+        logger.error(f"Database initialization failed: {str(e)}")
         raise
 
 def store_message(user_id, message, sender, message_type="text", metadata=None):
-    logger.debug(f"Storing message for user_id={user_id} sender={sender} type={message_type}")
+    """
+    Store message in database and update conversation history, including all message types.
+    Each history item includes 'role', 'content', and 'type'.
+    """
     try:
         c = conn.cursor()
         c.execute('''INSERT INTO conversations 
@@ -151,27 +144,25 @@ def store_message(user_id, message, sender, message_type="text", metadata=None):
                     VALUES (?, ?, ?)''',
                  (user_id, get_current_time(), json.dumps(history)))
         conn.commit()
-        logger.debug("Message stored and user context updated.")
     except Exception as e:
-        logger.error(f"Failed to store message: {str(e)}\n{traceback.format_exc()}")
+        logger.error(f"Failed to store message: {str(e)}")
 
 def get_conversation_history(user_id):
-    logger.debug(f"Fetching conversation history for user_id={user_id}")
+    """
+    Get full conversation history for a user, including all message types.
+    """
     try:
         c = conn.cursor()
         c.execute('''SELECT conversation_history FROM user_context WHERE user_id = ?''', (user_id,))
         result = c.fetchone()
         if result and result[0]:
-            logger.debug("Conversation history found.")
             return json.loads(result[0])
-        logger.debug("No conversation history found.")
         return []
     except Exception as e:
-        logger.error(f"Failed to get conversation history: {str(e)}\n{traceback.format_exc()}")
+        logger.error(f"Failed to get conversation history: {str(e)}")
         return []
 
 def log_message_status(sender_id, message_type, status, error_message=None, metadata=None):
-    logger.debug(f"Logging message status for {sender_id}: {status} ({message_type})")
     try:
         c = conn.cursor()
         c.execute('''INSERT INTO message_logs 
@@ -181,10 +172,12 @@ def log_message_status(sender_id, message_type, status, error_message=None, meta
                   json.dumps(metadata) if metadata else None))
         conn.commit()
     except Exception as e:
-        logger.error(f"Failed to log message status: {str(e)}\n{traceback.format_exc()}")
+        logger.error(f"Failed to log message status: {str(e)}")
 
 def send_message(recipient_id, message):
-    logger.info(f"send_message called for recipient_id={recipient_id}")
+    """
+    Send message to Facebook Messenger. Supports both text and image messages.
+    """
     api_url = f"https://graph.facebook.com/{API_VERSION}/me/messages"
     params = {"access_token": PAGE_ACCESS_TOKEN}
     headers = {"Content-Type": "application/json"}
@@ -207,6 +200,7 @@ def send_message(recipient_id, message):
                     }
                 }
                 message_type = "image"
+                message_content = f"[IMAGE: {message['content']}]"
                 logger.debug(f"Prepared image message with attachment_id: {message['content']}")
                 response = requests.post(api_url, params=params, headers=headers, json=data)
                 response_json = response.json() if response.text else {}
@@ -233,6 +227,7 @@ def send_message(recipient_id, message):
                     "message": {"text": msg_part}
                 }
                 message_type = "text"
+                message_content = msg_part
                 logger.debug("Prepared text message")
                 logger.debug(f"Sending request to Facebook API: {json.dumps(data, indent=2)}")
                 response = requests.post(api_url, params=params, headers=headers, json=data)
@@ -251,7 +246,8 @@ def send_message(recipient_id, message):
     except Exception as e:
         error_msg = str(e)
         log_message_status(recipient_id, "error", error_msg)
-        logger.error(f"Error in send_message: {error_msg}\n{traceback.format_exc()}")
+        logger.error(f"Error in send_message: {error_msg}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return False
     finally:
         logger.debug("=== END SEND MESSAGE ===")
@@ -279,7 +275,8 @@ def upload_image_to_graph(image_data):
             logger.error(f"Image upload failed. Response: {response.text}")
             return {"success": False, "error": response_json.get("error", {}).get("message", "Unknown error")}
     except Exception as e:
-        logger.error(f"Error in upload_image_to_graph: {str(e)}\n{traceback.format_exc()}")
+        logger.error(f"Error in upload_image_to_graph: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return {"success": False, "error": str(e)}
     finally:
         logger.debug("=== END IMAGE UPLOAD ===")
@@ -301,46 +298,62 @@ def process_command_response(sender_id, response):
                             "type": "image",
                             "content": upload_response["attachment_id"]
                         }
+                        # Store generated image message
+                        store_message(sender_id, f"[Generated image: {upload_response['attachment_id']}]", "bot", "image")
                         logger.debug(f"Sending image message with data: {message_data}")
-                        send_message(sender_id, message_data)
+                        if send_message(sender_id, message_data):
+                            logger.info(f"Successfully sent image message to {sender_id}")
+                        else:
+                            logger.error(f"Failed to send image message to {sender_id}")
+                            error_msg = "Failed to send image"
+                            store_message(sender_id, error_msg, "bot", "error")
+                            send_message(sender_id, error_msg)
                     else:
                         error_msg = f"Failed to upload image: {upload_response.get('error')}"
                         logger.error(error_msg)
+                        store_message(sender_id, error_msg, "bot", "error")
                         send_message(sender_id, error_msg)
                 else:
+                    store_message(sender_id, response.get("data", "No data provided"), "bot", response.get("type", "text"))
                     send_message(sender_id, response.get("data", "No data provided"))
             else:
                 error_msg = response.get("data", "Command failed")
+                store_message(sender_id, error_msg, "bot", "error")
                 send_message(sender_id, error_msg)
         else:
+            store_message(sender_id, str(response), "bot", "text")
             send_message(sender_id, str(response))
     except Exception as e:
-        logger.error(f"Error processing command response: {str(e)}\n{traceback.format_exc()}")
+        logger.error(f"Error processing command response: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         error_msg = "Error processing command response"
+        store_message(sender_id, error_msg, "bot", "error")
         send_message(sender_id, error_msg)
     finally:
         logger.debug("=== END PROCESS COMMAND RESPONSE ===")
 
 def handle_command_message(sender_id, message_text):
-    logger.debug(f"handle_command_message called for sender_id={sender_id} message_text={message_text}")
     command_parts = message_text[len(PREFIX):].split(maxsplit=1)
     command_name = command_parts[0]
     command_args = command_parts[1] if len(command_parts) > 1 else ""
     logger.debug(f"Processing command: {command_name} with args: {command_args}")
     try:
-        response = messageHandler.handle_text_command(command_name, command_args, sender_id)
+        response = messageHandler.handle_text_command(command_name, command_args,sender_id)
         if isinstance(response, list):
             for item in response:
                 process_command_response(sender_id, item)
         else:
             process_command_response(sender_id, response)
     except Exception as e:
-        logger.error(f"Error handling command: {str(e)}\n{traceback.format_exc()}")
+        logger.error(f"Error handling command: {str(e)}")
         error_msg = f"Error processing command: {str(e)}"
+        store_message(sender_id, error_msg, "bot", "error")
         send_message(sender_id, error_msg)
 
 def report(error_message):
-    logger.warning(f"report called, reporting error: {error_message}")
+    """
+    Send an error message to the bot admin.
+    """
     try:
         formatted_message = f"""🚨Error Alert🚨
 
@@ -353,42 +366,39 @@ def report(error_message):
         send_message(ADMIN_ID, formatted_message)
         logger.info("Error successfully sent to the bot admin.")
     except Exception as e:
-        logger.error(f"Failed to notify admin about the error: {e}\n{traceback.format_exc()}")
+        logger.error(f"Failed to notify admin about the error: {e}")
 
 @app.route('/webhook', methods=['GET'])
 def verify():
-    logger.info("GET /webhook called for verification.")
     token_sent = request.args.get("hub.verify_token")
-    logger.debug(f"Token sent: {token_sent}")
     if token_sent == VERIFY_TOKEN:
-        logger.info("Verification token matched.")
         return request.args.get("hub.challenge", "")
-    logger.warning("Verification failed. Invalid token.")
     return "Verification failed", 403
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    logger.info("POST /webhook called.")
     try:
         data = request.get_json()
         logger.debug(f"Received webhook data: {json.dumps(data, indent=2)}")
         if data.get("object") != "page":
             logger.warning("Received non-page object in webhook")
             return "Not a page object", 404
-        for entry in data.get("entry", []):
+        for entry in data["entry"]:
             for event in entry.get("messaging", []):
                 sender_id = event["sender"]["id"]
-                logger.debug(f"Processing event for sender_id={sender_id}: {event}")
                 if "message" in event:
                     message = event["message"]
                     message_text = message.get("text", "")
                     attachments = message.get("attachments", [])
-                    logger.debug(f"Message from {sender_id}: {message_text}")
+                    logger.debug(f"Processing message from {sender_id}: {message_text}")
                     try:
+                        # Always store user messages
                         if message_text:
                             store_message(sender_id, message_text, "user", "text")
+                        # Handle commands (e.g., /imagine ...)
                         if message_text.startswith(PREFIX):
                             handle_command_message(sender_id, message_text)
+                        # Handle image attachments from user
                         elif attachments:
                             for attachment in attachments:
                                 if attachment["type"] == "image":
@@ -396,61 +406,60 @@ def webhook():
                                     try:
                                         response = requests.get(image_url)
                                         image_data = BytesIO(response.content)
+                                        # Store user image message
                                         store_message(sender_id, f"[User sent an image: {image_url}]", "user", "image")
+                                        # Always pass latest persistent history
                                         history = get_conversation_history(sender_id)
+                                        # Process the image and get analysis
                                         result = messageHandler.handle_attachment(sender_id, image_data, "image", history)
+                                        # Store bot's analysis result
                                         store_message(sender_id, result, "bot", "analysis")
                                         send_message(sender_id, result)
                                     except Exception as e:
-                                        logger.error(f"Error processing image: {str(e)}\n{traceback.format_exc()}")
+                                        logger.error(f"Error processing image: {str(e)}")
                                         error_msg = "Error processing image"
                                         store_message(sender_id, error_msg, "bot", "error")
                                         send_message(sender_id, error_msg)
                                         report(str(e))
+                        # Handle plain text messages
                         elif message_text:
                             history = get_conversation_history(sender_id)
                             intent = classifier.predict_intent(message_text)
-                            logger.debug(f"Predicted intent: {intent}")
                             if intent == "generate_image":
-                                response = "😔 Image generation not available at the moment."
-                            elif intent == "image_search":
-                                response = image.execute(message_text, sender_id)
+                                response = imagine.execute(message_text, sender_id)
                                 if isinstance(response, list):
                                     for item in response:
                                         process_command_response(sender_id, item)
                                 else:
                                     process_command_response(sender_id, response)
-                                store_message(sender_id, f"[Image generated/Searched for the prompt: {message_text}]", "bot", "image")
+                                store_message(sender_id, f"[Image generated: {message_text}]", "bot", "image")
                             else:
                                 response = messageHandler.handle_text_message(sender_id, message_text, history)
                                 store_message(sender_id, response, "bot", "text")
                                 send_message(sender_id, response)
                     except Exception as e:
-                        logger.error(f"Error processing message: {str(e)}\n{traceback.format_exc()}")
+                        logger.error(f"Error processing message: {str(e)}")
                         error_msg = "Sorry, I encountered an error processing your message."
                         store_message(sender_id, error_msg, "bot", "error")
                         send_message(sender_id, error_msg)
                         report(str(e))
-        logger.info("/webhook event processed successfully.")
         return "EVENT_RECEIVED", 200
     except Exception as e:
-        logger.error(f"Error in webhook: {str(e)}\n{traceback.format_exc()}")
-        report(str(e))
+        logger.error(f"Error in webhook: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        #send_message(8711876652167640,e)
+        report(f"ERROR IN WEBHOOK: {str(e)}")
         return "Internal error", 500
 
 @app.route('/')
 def home():
-    logger.info("GET / called - rendering index.html")
     return render_template('index.html')
 
 @app.route('/api', methods=['GET'])
 def api():
-    logger.info("GET /api called.")
     query = request.args.get('query')
     uid = request.args.get('uid')
-    logger.debug(f"API request params: query={query}, uid={uid}")
     if not query:
-        logger.warning("No query provided to /api endpoint.")
         return jsonify({"error": "No query provided"}), 400
     try:
         user_id = uid if uid else f"api_user_{str(int(time.time()))}"
@@ -458,61 +467,39 @@ def api():
         history = get_conversation_history(user_id)
         response = messageHandler.handle_text_message(user_id, query, history)
         store_message(user_id, response, "bot", "text")
-        logger.info(f"API call for user_id={user_id} responded successfully.")
-        return jsonify({"response": response})
+        return jsonify({"response":response})
     except Exception as e:
-        logger.error(f"API error: {str(e)}\n{traceback.format_exc()}")
+        logger.error(f"API error: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/status', methods=['GET'])
 def status():
-    logger.info("GET /status called.")
     uptime = get_bot_uptime()
     hours, remainder = divmod(uptime, 3600)
     minutes, seconds = divmod(remainder, 60)
-    status_info = {
+    return jsonify({
         "status": "online",
         "uptime": f"{int(hours)}h {int(minutes)}m {int(seconds)}s",
         "initialized": INITIALIZED,
         "timestamp": get_current_time()
-    }
-    logger.debug(f"Status info: {status_info}")
-    return jsonify(status_info)
-
-@app.route('/history', methods=['GET'])
-def user_history():
-    logger.info("GET /history called.")
-    user_id = request.args.get("id")
-    admin_code = request.args.get("admin")
-    if not user_id:
-        logger.warning("No user id provided to /history endpoint.")
-        return jsonify({"error": "No user id provided"}), 400
-    if admin_code != os.getenv("ADMIN_CODE", "ICU14CU"):
-        logger.warning("Invalid admin code provided to /history endpoint.")
-        return jsonify({"error": "Invalid admin code"}), 403
-    try:
-        history = get_conversation_history(user_id)
-        logger.info(f"User history fetched for user_id={user_id}")
-        return jsonify({"user_id": user_id, "conversation_history": history})
-    except Exception as e:
-        logger.error(f"Error fetching conversation history: {str(e)}\n{traceback.format_exc()}")
-        return jsonify({"error": str(e)}), 500
+    })
 
 def get_bot_uptime():
     return time.time() - start_time
 
-# App startup
 try:
-    logger.info("Application initialization started.")
     validate_environment()
     conn = init_db()
     INITIALIZED = True
     logger.info("🎉Application initialized successfully")
 except Exception as e:
-    logger.critical(f"Failed to initialize application: {str(e)}\n{traceback.format_exc()}")
+    logger.critical(f"Failed to initialize application: {str(e)}")
     raise
 
 if __name__ == '__main__':
-    logger.info("🎉.Starting Flask application.")
-    app.run(debug=False, host='0.0.0.0', port=3000)
-    logger.info("Flask application shutdown.")    
+    app.run(debug=True, host='0.0.0.0',port=3000)
+    logger.info("""==================
+    APP STARTED SUCCESSFULLY......
+    ===================
+    CREATED BY SULEIMAN
+    ===================""")
