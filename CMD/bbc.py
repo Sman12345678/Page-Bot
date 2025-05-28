@@ -36,7 +36,7 @@ def scrape_news():
         if link and link.startswith("/"):
             link = "https://www.bbc.com" + link
         title = a_tag.get_text(strip=True) if a_tag else None
-        img_tag = item.find("img", class_="sc-4abb68ca-0 ldLcJe")
+        img_tag = item.find("img", class_="sc-d1200759-0 dvfjxj")
         image_url = img_tag["src"] if img_tag and img_tag.has_attr("src") else None
         desc_tag = item.find("p", class_="sc-cb78bbba-0 klCBmG", attrs={"data-testid": "card-description"})
         description = desc_tag.get_text(strip=True) if desc_tag else None
