@@ -11,7 +11,6 @@ from io import BytesIO
 import json
 import traceback
 from datetime import datetime, timezone
-from listcmd import register_commands
 from intent import classifier 
 from CMD import imagine
 
