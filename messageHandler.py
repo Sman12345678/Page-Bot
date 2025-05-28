@@ -43,7 +43,8 @@ Things you can do = (
 *send mail*:*You can Send email messages when user use "/mail recipient_email, Message title, message body".
 *send message to your owner*:if user has any feedback for your owner. tell them to use the command "/report <their query>"
 *Lyrics*:*You can provide lyrics when user uses "/lyrics song name" *
-*search for image*:*provide image search from online sources*
+*search for image*:*you can provide image search from online sources when user uses /image <query>*
+*provide news headline*:*you can give ten headlines from bbc when user uses /bbc*
 )
 ***
 
