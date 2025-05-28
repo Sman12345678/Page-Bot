@@ -426,7 +426,7 @@ def webhook():
                             intent = classifier.predict_intent(message_text)
                             if intent == "generate_image":
                                 response = imagine.execute(message_text, sender_id)
-                            elif message_text == "image_search":
+                            elif intent == "image_search":
                                 response = image.execute(message_text, sender_id)
                                 if isinstance(response, list):
                                     for item in response:
