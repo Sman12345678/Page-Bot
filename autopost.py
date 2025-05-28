@@ -97,6 +97,6 @@ def post():
             print(f"📡 Facebook Response: {result}")
         except Exception as e:
             print(f"[{datetime.now()}] ❌ Auto-post failed: {e}")
-            report (f"Autopost error:{e}")
+            report(f"Autopost error:{e}")
 
         time.sleep(86400)  # sleep 24 hours
