@@ -28,11 +28,20 @@ def execute(message, sender_id):
     if sender_id != ADMIN_ID:
         return "Unauthorized user."
 
-    # ! Handle image post: "post image IMAGE_URL|caption"
+    # Trim the message to avoid errors with extra spaces
+    message = message.strip()
+
+    if not message:
+        return "Message cannot be empty. Please provide a valid message."
+
+    # Handle image post: "post image IMAGE_URL|caption"
     if message.lower().startswith("post image "):
         try:
             command_content = message[11:].strip()  # remove "post image "
             
+            if not command_content:
+                return "No image URL or caption provided. Format: post image IMAGE_URL|Caption text"
+
             if "|" not in command_content:
                 return "Invalid format. Use: post image IMAGE_URL|Caption text"
 
@@ -51,5 +60,11 @@ def execute(message, sender_id):
 
         except Exception as e:
             return f"An error occurred while posting image: {str(e)}"
-
-     
+    
+    # If the message does not start with "post image", it's just normal text.
+    else:
+        try:
+            result = post_text_to_page(message)
+            return f"✅ Text posted.\n📝 Message: {message}\n📡 Facebook Response: {result}"
+        except Exception as e:
+            return f"An error occurred while posting text: {str(e)}"
