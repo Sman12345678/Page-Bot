@@ -3,10 +3,9 @@ import requests
 
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 ADMIN_ID = os.getenv("ADMIN_ID")
-PAGE_ID = os.getenv("PAGE_ID")
 
 def post_text_to_page(message):
-    url = f"https://graph.facebook.com/{PAGE_ID}/feed"
+    url = "https://graph.facebook.com/v22.0/me/feed"
     payload = {
         "message": message,
         "access_token": PAGE_ACCESS_TOKEN
@@ -15,7 +14,7 @@ def post_text_to_page(message):
     return response.json()
 
 def post_image_to_page(image_url, caption=""):
-    url = f"https://graph.facebook.com/{PAGE_ID}/photos"
+    url = "https://graph.facebook.com/v22.0/me/photos"
     payload = {
         "url": image_url,
         "caption": caption,
@@ -26,45 +25,49 @@ def post_image_to_page(image_url, caption=""):
 
 def execute(message, sender_id):
     if sender_id != ADMIN_ID:
-        return "Unauthorized user."
+        return "⛔ Unauthorized user. Only the admin can post."
 
-    # Trim the message to avoid errors with extra spaces
     message = message.strip()
 
     if not message:
-        return "Message cannot be empty. Please provide a valid message."
+        return "⚠️ Message cannot be empty. Please provide a valid message."
 
-    # Handle image post: "post image IMAGE_URL|caption"
-    if message.lower().startswith("post image "):
+    # Handle image post: "image IMAGE_URL|Caption text"
+    if message.lower().startswith("image "):
         try:
-            command_content = message[11:].strip()  # remove "post image "
-            
-            if not command_content:
-                return "No image URL or caption provided. Format: post image IMAGE_URL|Caption text"
+            command_content = message[6:].strip()  # remove "image "
 
             if "|" not in command_content:
-                return "Invalid format. Use: post image IMAGE_URL|Caption text"
+                return "⚠️ Invalid format. Use: image IMAGE_URL|Caption text"
 
             image_url, caption = command_content.split("|", 1)
             image_url = image_url.strip()
             caption = caption.strip()
 
             if not image_url:
-                return "Image URL is missing. Format: post image IMAGE_URL|Caption"
+                return "⚠️ Image URL is missing. Format: image IMAGE_URL|Caption"
 
             if not caption:
-                return "Caption is missing. Format: post image IMAGE_URL|Caption"
+                return "⚠️ Caption is missing. Format: image IMAGE_URL|Caption"
 
             result = post_image_to_page(image_url, caption)
-            return f"✅ Image posted.\n🖼️ Image URL: {image_url}\n📝 Caption: {caption}\n📡 Facebook Response: {result}"
+            return (
+                f"✅ Image posted successfully.\n"
+                f"🖼️ Image URL: {image_url}\n"
+                f"📝 Caption: {caption}\n"
+                f"📡 Facebook Response: {result}"
+            )
 
         except Exception as e:
-            return f"An error occurred while posting image: {str(e)}"
-    
-    # If the message does not start with "post image", it's just normal text.
-    else:
-        try:
-            result = post_text_to_page(message)
-            return f"✅ Text posted.\n📝 Message: {message}\n📡 Facebook Response: {result}"
-        except Exception as e:
-            return f"An error occurred while posting text: {str(e)}"
+            return f"❌ Error posting image: {str(e)}"
+
+    # Default: treat as text post
+    try:
+        result = post_text_to_page(message)
+        return (
+            f"✅ Text posted successfully.\n"
+            f"📝 Message: {message}\n"
+            f"📡 Facebook Response: {result}"
+        )
+    except Exception as e:
+        return f"❌ Error posting text: {str(e)}"
