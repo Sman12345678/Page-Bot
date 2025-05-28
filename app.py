@@ -483,6 +483,30 @@ def status():
         "timestamp": get_current_time()
     })
 
+@app.route('/history', methods=['GET'])
+def user_history():
+    logger.info("GET /history called.")
+    user_id = request.args.get("id")
+    admin_code = request.args.get("admin")
+    if not user_id:
+        logger.warning("No user id provided to /history endpoint.")
+        return jsonify({"error": "No user id provided"}), 400
+    if admin_code != os.getenv("ADMIN_CODE", "ICU14CU"):
+        logger.warning("Invalid admin code provided to /history endpoint.")
+        return jsonify({"error": "Invalid admin code"}), 403
+    try:
+        history = get_conversation_history(user_id)
+        logger.info(f"User history fetched for user_id={user_id}")
+        return jsonify({"user_id": user_id, "conversation_history": history})
+    except Exception as e:
+        logger.error(f"Error fetching conversation history: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({"error": str(e)}), 500
+
+@app.errorhandler(404)
+def error:
+    return render_template('error.html')
+
+
 def get_bot_uptime():
     return time.time() - start_time
 
