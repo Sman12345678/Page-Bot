@@ -46,6 +46,10 @@ train_data = [
     
     # general_chat intent
     ("how are you?", "general_chat"),
+    ("in relation to the image write a prompt", "general_chat"),
+    ("can you explain more about the image?", "general_chat"),
+    ("i want to know how to generate image.", "general_chat"),
+    ("create a poem", "general_chat"),
     ("Teach me how to code","general_chat"),
     ("Teach me how to draw","general_chat"),
     ("i want to know art and illustration ","general_chat"),
