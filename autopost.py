@@ -5,7 +5,7 @@ import time
 import random
 import requests
 from datetime import datetime
-from app import report  # your error-reporting function
+import app
 
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 
@@ -110,13 +110,13 @@ def post():
 
             # Handle specific OAuthException code 100
             if result.get("error", {}).get("code") == 100:
-                report(f"Autopost OAuthException, need app-scoped ID: {result['error']['message']}")
+                app.report(f"Autopost OAuthException, need app-scoped ID: {result['error']['message']}")
 
             print(f"[{datetime.now()}] ✅ Auto-posted: {message}")
             print(f"📡 Facebook Response: {result}")
 
         except Exception as e:
             print(f"[{datetime.now()}] ❌ Auto-post failed: {e}")
-            report(f"Autopost error: {e}")
+            app.report(f"Autopost error: {e}")
 
         time.sleep(86400)  # wait 24 hours
