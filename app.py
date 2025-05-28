@@ -505,7 +505,7 @@ def user_history():
         return jsonify({"error": str(e)}), 500
 
 @app.errorhandler(404)
-def error:
+def error():
     return render_template('error.html')
 
 
