@@ -13,6 +13,7 @@ import traceback
 from datetime import datetime, timezone
 from intent import classifier 
 from CMD import image
+import sys
 
 # Load environment variables
 load_dotenv()
@@ -21,17 +22,17 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-LOG_FILE = os.getenv("LOG_FILE", "app_debug.log")
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(funcName)s - %(message)s',
     handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler(LOG_FILE, mode='a', encoding='utf-8')
+        logging.StreamHandler(sys.stdout)  # Logs to stdout for Render
     ]
 )
+
 logger = logging.getLogger()
-logger.info("Logger initialized. Logging to file: %s", LOG_FILE)
+logger.info("Logger initialized. Logging to console only.")
+
 
 ADMIN_ID = os.getenv("ADMIN_ID")
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
