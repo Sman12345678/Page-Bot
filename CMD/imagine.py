@@ -11,7 +11,7 @@ def execute(message, sender_id):
         "ask": message,
         "uid": "Kora",
         "imageUrl": "",
-        "apikey": "83248daa-8ad2-45d0-93d5-c1c8752b97d3"
+        "apikey": "2d91ea21-2c65-4edc-b601-8d06085c8358"
     }
     try:
         response = requests.get(api_url, params=params, timeout=30)
