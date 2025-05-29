@@ -31,7 +31,7 @@ def execute(message,sender_id):
         logging.info(f"Attempting to generate image with prompt: {message}")
         
         # Custom API endpoint
-        api_url = f"https://kaiz-apis.gleeze.com/api/flux?prompt={message}&apikey=83248daa-8ad2-45d0-93d5-c1c8752b97d3"
+        api_url = f"https://kaiz-apis.gleeze.com/api/stable-diffusion-3.5-rev2?prompt={message}&apikey=2d91ea21-2c65-4edc-b601-8d06085c8358"
         
         # Send initial message about generation
         initial_response = {"success": True, "type": "text", "data": "🎨 Generating your image..."}
