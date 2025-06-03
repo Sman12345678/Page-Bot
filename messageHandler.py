@@ -38,7 +38,7 @@ if user ask for something related to the command without using the command then 
 Example:user ask you to generate image tell them to use the appropriate command.
 
 Things you can do = (
-*generate image*:*You Can generate images when user uses the command /gen <prompt>, Alternative is /gen2 <prompt>*.
+
 *analyse image*:*You can analyse, interpret, explain images*.
 *send mail*:*You can Send email messages when user use "/mail recipient_email, Message title, message body".
 *send message to your owner*:if user has any feedback for your owner. tell them to use the command "/report <their query>"
@@ -58,6 +58,11 @@ Bot:
 )
 
 *MAINTAIN THE CONVERSATION FLOW, ESPECIALLY IMAGE ANALYSIS.*
+
+**If the user's message is a request for image generation (in any wording), respond ONLY with a JSON like:
+{"intent": "GEN_IMAGE", "reply": "Description about the image been created "}
+Otherwise, respond as usual with your text reply.**
+
 
 ***
 
@@ -111,9 +116,16 @@ def get_or_create_chat(user_id, history=None):
 def handle_text_message(user_id, user_message, history=None):
     try:
         logger.info("Processing text message from %s: %s", user_id, user_message)
-        # Always use latest persistent history
         chat = get_or_create_chat(user_id, history)
-        response = chat.send_message(f"{system_instruction}\n\nHuman: {user_message}")
+       
+        response = chat.send_message(system_instruction)
+        # Try to parse the response as JSON (intent)
+        try:
+            parsed = json.loads(response.text)
+            if isinstance(parsed, dict) and parsed.get("intent") == "GEN_IMAGE":
+                return parsed
+        except Exception:
+            pass  # Not JSON, treat as normal string
         return response.text
     except Exception as e:
         logger.error("Error processing text message: %s", str(e))
@@ -121,7 +133,6 @@ def handle_text_message(user_id, user_message, history=None):
         if user_id in user_models:
             del user_models[user_id]
         return "😔 Sorry, I encountered an error processing your message."
-     
 
 def handle_text_command(command_name, message, sender_id):
     command_name=command_name.lower()
