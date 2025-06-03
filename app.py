@@ -11,7 +11,6 @@ from io import BytesIO
 import json
 import traceback
 from datetime import datetime, timezone
-from intent import classifier 
 from CMD import imagine 
 from autopost import post
 import threading 
@@ -407,13 +406,13 @@ def webhook():
                                         response = requests.get(image_url)
                                         image_data = BytesIO(response.content)
                                         # Store user image message
-                                        store_message(sender_id, f"[User sent an image: {image_url}]", "user", "image")
+                                        store_message(sender_id, f"[Image Url: {image_url}]", "user", "image")
                                         # Always pass latest persistent history
                                         history = get_conversation_history(sender_id)
                                         # Process the image and get analysis
                                         result = messageHandler.handle_attachment(sender_id, image_data, "image", history)
                                         # Store bot's analysis result
-                                        store_message(sender_id, result, "bot", "analysis")
+                                        store_message(sender_id, f"Image Analysis:{result}", "bot", "analysis")
                                         send_message(sender_id, result)
                                     except Exception as e:
                                         logger.error(f"Error processing image: {str(e)}")
@@ -424,17 +423,21 @@ def webhook():
                         # Handle plain text messages
                         elif message_text:
                             history = get_conversation_history(sender_id)
-                            intent = classifier.predict_intent(message_text)
-                            if intent == "generate_image":
-                                response = imagine.execute(message_text, sender_id)
-                                if isinstance(response, list):
-                                    for item in response:
+                            response = messageHandler.handle_text_message(sender_id, message_text, history)
+                            # Handle image generation intent from messageHandler
+                            if isinstance(response, dict) and response.get("intent") == "GEN_IMAGE":
+                                # Send guidance or description to user first
+                                store_message(sender_id, response["reply"], "bot", "text")
+                                send_message(sender_id, response["reply"])
+                                # Then execute the actual image generation command
+                                result = imagine.execute(message_text, sender_id)
+                                if isinstance(result, list):
+                                    for item in result:
                                         process_command_response(sender_id, item)
                                 else:
-                                    process_command_response(sender_id, response)
-                                
+                                    process_command_response(sender_id, result)
                             else:
-                                response = messageHandler.handle_text_message(sender_id, message_text, history)
+                                # Normal text response
                                 store_message(sender_id, response, "bot", "text")
                                 send_message(sender_id, response)
                     except Exception as e:
@@ -447,7 +450,6 @@ def webhook():
     except Exception as e:
         logger.error(f"Error in webhook: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
-        #send_message(8711876652167640,e)
         report(f"ERROR IN WEBHOOK: {str(e)}")
         return "Internal error", 500
 
