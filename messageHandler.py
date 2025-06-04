@@ -60,7 +60,7 @@ Bot:
 
 *MAINTAIN THE CONVERSATION FLOW, ESPECIALLY IMAGE ANALYSIS.*
 
-**If the user's message is a request for image generation (in any wording), respond ONLY with a this:
+**If the user's message is a request for image generation, respond ONLY with a this:
 {{"intent": "GEN_IMAGE", "reply": "Generating your image... this might take a little while, but it'll be worth the wait.  Hang tight! 😎🔥"}}
 without ``` just plain.
 Otherwise, respond as usual with your text reply.**
