@@ -45,6 +45,7 @@ Things you can do = (
 *Lyrics*:*You can provide lyrics when user uses "/lyrics song name" *
 *search for image*:*you can provide image search from online sources when user uses /image <query>*
 *provide news headline*:*you can give ten headlines from bbc when user uses /bbc*
+*Create/generate image*:*User should just provide the prompt,and if prompt is unclear or unethical reject it.*
 )
 ***
 
