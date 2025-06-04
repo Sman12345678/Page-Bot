@@ -118,8 +118,7 @@ def handle_text_message(user_id, user_message, history=None):
         logger.info("Processing text message from %s: %s", user_id, user_message)
         chat = get_or_create_chat(user_id, history)
        
-        response = chat.send_message(system_instruction)
-        # Try to parse the response as JSON (intent)
+        response = chat.send_message(f"{system_instruction}\n\nHuman: {user_message}")
         try:
             parsed = json.loads(response.text)
             if isinstance(parsed, dict) and parsed.get("intent") == "GEN_IMAGE":
