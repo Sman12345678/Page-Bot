@@ -59,8 +59,9 @@ Bot:
 
 *MAINTAIN THE CONVERSATION FLOW, ESPECIALLY IMAGE ANALYSIS.*
 
-**If the user's message is a request for image generation (in any wording), respond ONLY with a JSON like:
+**If the user's message is a request for image generation (in any wording), respond ONLY with a this:
 {{"intent": "GEN_IMAGE", "reply": "Description about the image been created "}}
+without ``` just plain.
 Otherwise, respond as usual with your text reply.**
 
 
