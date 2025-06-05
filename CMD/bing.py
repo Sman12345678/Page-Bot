@@ -1,9 +1,9 @@
 import requests
 import logging
 import time
+from io import BytesIO
 import app  # To use app.report
 
-# Track last used time and in-progress state per user
 user_last_used = {}
 in_progress = set()
 
@@ -39,7 +39,6 @@ def execute(message, sender_id=None):
                     "data": "⏳ Your previous /bing request is still in progress. Please wait for it to finish."
                 }
 
-            # Cooldown check
             now = time.time()
             last_used = user_last_used.get(sender_id, 0)
             if now - last_used < COOLDOWN_SECONDS:
@@ -49,11 +48,9 @@ def execute(message, sender_id=None):
                     "type": "text",
                     "data": f"⏳ Please wait {wait_time} seconds before using /bing again. This command has a 10 second cooldown."
                 }
-            # Mark as in progress
             in_progress.add(sender_id)
             user_last_used[sender_id] = now
 
-        # Send waiting message as part of the response
         waiting_msg = {
             "success": True,
             "type": "text",
@@ -94,11 +91,22 @@ def execute(message, sender_id=None):
             url = item.get("url")
             if not url:
                 continue
-            images.append({
-                "success": True,
-                "type": "image_url",
-                "data": url
-            })
+            try:
+                img_response = requests.get(url, timeout=60)
+                img_response.raise_for_status()
+                images.append({
+                    "success": True,
+                    "type": "image",
+                    "data": BytesIO(img_response.content)
+                })
+            except Exception as e:
+                error_msg = f"❌ Failed to fetch generated image: {str(e)}"
+                images.append({
+                    "success": False,
+                    "type": "text",
+                    "data": error_msg
+                })
+                app.report(f"Error fetching image from Bing API: {str(e)}")
 
         if images:
             return images
