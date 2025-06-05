@@ -3,10 +3,11 @@ import requests
 import logging
 from urllib.parse import urlparse
 import time
-import app  # Import app to use app.report
+import app  # To use app.report and app.send_message if available
 
-# Track last used time per user to implement cooldown
+# Track last used time and in-progress state per user
 user_last_used = {}
+in_progress = set()
 
 Info = {
     "Description": "Generate Images using Bing Creator API"
@@ -26,7 +27,6 @@ COOLDOWN_SECONDS = 10
 
 def execute(message, sender_id=None):
     try:
-        # Validate prompt
         if not message or not message.strip():
             return {
                 "success": False,
@@ -34,32 +34,72 @@ def execute(message, sender_id=None):
                 "data": "❌ Please provide a valid prompt for image generation."
             }
 
-        # Cooldown check
-        now = time.time()
+        # In-progress check
         if sender_id is not None:
-            last_used = user_last_used.get(sender_id, 0)
-            if now - last_used < COOLDOWN_SECONDS:
-                wait_time = COOLDOWN_SECONDS - (now - last_used)
+            if sender_id in in_progress:
                 return {
                     "success": False,
                     "type": "text",
-                    "data": f"⏳ Please wait {int(wait_time)} seconds before using /bing again. This command has a 10 second cooldown."
+                    "data": "⏳ Your previous /bing request is still in progress. Please wait for it to finish."
                 }
-            user_last_used[sender_id] = now
+
+            # Cooldown check
+            now = time.time()
+            last_used = user_last_used.get(sender_id, 0)
+            if now - last_used < COOLDOWN_SECONDS:
+                wait_time = int(COOLDOWN_SECONDS - (now - last_used))
+                return {
+                    "success": False,
+                    "type": "text",
+                    "data": f"⏳ Please wait {wait_time} seconds before using /bing again. This command has a 10 second cooldown."
+                }
+            # Mark as in progress
+            in_progress.add(sender_id)
+            # Send waiting message if bot interface allows (optional: uncomment if you use app.send_message)
+            # app.send_message(sender_id, "🎨 Generating your images, please wait... ⏳")
 
         params = {"prompt": message, "api_key": "sman-apiA1B2C3D4E5"}
-        response = requests.get(GEN_ENDPOINT, params=params, timeout=120)
-        response.raise_for_status()
-        result = response.json()
+        try:
+            # Send waiting message as part of the response
+            if sender_id is not None:
+                waiting_msg = {
+                    "success": True,
+                    "type": "text",
+                    "data": "🎨 Generating your images, please wait... ⏳"
+                }
+            response = requests.get(GEN_ENDPOINT, params=params, timeout=120)
+            response.raise_for_status()
+            result = response.json()
+        except Exception as e:
+            if sender_id is not None:
+                in_progress.discard(sender_id)
+            app.report(f"Bing API Error: {str(e)}")
+            return [
+                waiting_msg,
+                {
+                    "success": False,
+                    "type": "text",
+                    "data": "❌ Bing image generation failed. Please try again later."
+                }
+            ]
+        finally:
+            # Always clear in_progress even on error or timeout
+            if sender_id is not None:
+                in_progress.discard(sender_id)
 
         if not isinstance(result, list) or not result:
-            return {
-                "success": False,
-                "type": "text",
-                "data": "❌ No images were generated. Please try again with a different prompt."
-            }
+            return [
+                waiting_msg,
+                {
+                    "success": False,
+                    "type": "text",
+                    "data": "❌ No images were generated. Please try again with a different prompt."
+                }
+            ]
 
         images = []
+        if sender_id is not None:
+            images.append(waiting_msg)
         for item in result:
             url = item.get("url")
             if not url:
@@ -80,32 +120,21 @@ def execute(message, sender_id=None):
                     "type": "text",
                     "data": error_msg
                 })
-                app.report(f"Error fetching image from Bing API: {str(e)}")  # Report error
-
+                app.report(f"Error fetching image from Bing API: {str(e)}")
         if images:
             return images
         else:
-            return {
-                "success": False,
-                "type": "text",
-                "data": "❌ Failed to fetch generated images."
-            }
-
-    except requests.exceptions.Timeout as e:
-        app.report(f"Bing API Timeout: {str(e)}")
-        return {
-            "success": False,
-            "type": "text",
-            "data": "⏰ The Bing image generator took too long. Please try again later."
-        }
-    except requests.exceptions.RequestException as e:
-        app.report(f"Bing API Request Error: {str(e)}")
-        return {
-            "success": False,
-            "type": "text",
-            "data": "❌ Bing image generation failed. Please try again later."
-        }
+            return [
+                waiting_msg,
+                {
+                    "success": False,
+                    "type": "text",
+                    "data": "❌ Failed to fetch generated images."
+                }
+            ]
     except Exception as e:
+        if sender_id is not None:
+            in_progress.discard(sender_id)
         app.report(f"Unexpected error in bing.py: {str(e)}")
         return {
             "success": False,
