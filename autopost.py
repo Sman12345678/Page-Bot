@@ -4,14 +4,14 @@ import random
 import requests
 from datetime import datetime
 import app
-import messageHandler  # Make sure this import matches your project structure
+import messageHandler  # Ensure this import matches your project structure
 
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
-PAGE_ID = os.getenv("PAGE_ID")  # Set your Page's numeric ID as an environment variable
+PAGE_ID = os.getenv("PAGE_ID")  # Your Page's numeric ID
 
 def post_text_to_page(message):
     """
-    Posts text to the Facebook Page tied to PAGE_ACCESS_TOKEN via the /me/feed endpoint.
+    Posts text to the Facebook Page via the /me/feed endpoint.
     """
     url = "https://graph.facebook.com/v22.0/me/feed"
     payload = {
@@ -146,7 +146,9 @@ def get_all_posts(limit=20):
         "limit": limit
     }
     r = requests.get(url, params=params)
-    r.raise_for_status()
+    if r.status_code != 200:
+        print("Failed to fetch posts:", r.text)
+        r.raise_for_status()
     return r.json().get("data", [])
 
 def get_comments_for_post(post_id, limit=30):
@@ -160,7 +162,9 @@ def get_comments_for_post(post_id, limit=30):
         "limit": limit
     }
     r = requests.get(url, params=params)
-    r.raise_for_status()
+    if r.status_code != 200:
+        print("Failed to fetch comments:", r.text)
+        r.raise_for_status()
     return r.json().get("data", [])
 
 def has_bot_replied(comment_id):
@@ -173,7 +177,9 @@ def has_bot_replied(comment_id):
         "fields": "from"
     }
     r = requests.get(url, params=params)
-    r.raise_for_status()
+    if r.status_code != 200:
+        print("Failed to fetch comment replies:", r.text)
+        r.raise_for_status()
     replies = r.json().get("data", [])
     for reply in replies:
         if reply.get("from", {}).get("id") == PAGE_ID:
