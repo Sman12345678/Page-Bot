@@ -385,6 +385,17 @@ def webhook():
         for entry in data["entry"]:
             for event in entry.get("messaging", []):
                 sender_id = event["sender"]["id"]
+
+                # --- GREETING FOR GET STARTED BUTTON ---
+                if "postback" in event:
+                    payload = event["postback"].get("payload", "")
+                    if payload == "GET_STARTED":
+                        greeting = "👋 Welcome! I'm Kora, How can I help you today?"
+                        store_message(sender_id, "[Get Started]", "user", "postback")
+                        store_message(sender_id, greeting, "bot", "text")
+                        send_message(sender_id, greeting)
+                        continue  # Do not process further for this event
+
                 if "message" in event:
                     message = event["message"]
                     message_text = message.get("text", "")
@@ -452,7 +463,6 @@ def webhook():
         logger.error(f"Traceback: {traceback.format_exc()}")
         report(f"ERROR IN WEBHOOK: {str(e)}")
         return "Internal error", 500
-
 @app.route('/')
 def home():
     return render_template('index.html')
